@@ -6,7 +6,8 @@
  * trailing-comma rows (which simply yield an extra empty field).
  */
 
-import { parse as papaParse } from 'papaparse'
+import Papa from 'papaparse'
+const papaParse = Papa.parse
 import type { TxnDraft } from '../../../shared/types'
 import { detectFormat, type CsvFormat } from './detect'
 
