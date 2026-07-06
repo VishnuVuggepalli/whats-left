@@ -14,6 +14,20 @@
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
+const MONTH_NAMES_FULL = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
 
 function assertInteger(cents: number): void {
   if (!Number.isInteger(cents)) {
@@ -72,6 +86,30 @@ export function monthLabel(month: string): string {
   const name = MONTH_NAMES[Number(month.slice(5, 7)) - 1]
   if (!name) throw new Error(`Out-of-range month: ${JSON.stringify(month)}`)
   return `${name} ${month.slice(0, 4)}`
+}
+
+/** 'YYYY-MM' → 'July 2026' (full month name, design month stepper). */
+export function monthLabelFull(month: string): string {
+  assertYearMonth(month)
+  const name = MONTH_NAMES_FULL[Number(month.slice(5, 7)) - 1]
+  if (!name) throw new Error(`Out-of-range month: ${JSON.stringify(month)}`)
+  return `${name} ${month.slice(0, 4)}`
+}
+
+/** 'YYYY-MM' → 'July' (full month name only, dashboard hero caption). */
+export function monthNameFull(month: string): string {
+  assertYearMonth(month)
+  const name = MONTH_NAMES_FULL[Number(month.slice(5, 7)) - 1]
+  if (!name) throw new Error(`Out-of-range month: ${JSON.stringify(month)}`)
+  return name
+}
+
+/** 'YYYY-MM-DD' → 'Jun 29' (pure string ops — never parses into a Date). */
+export function shortDate(isoDate: string): string {
+  if (!ISO_DATE_RE.test(isoDate)) throw new Error(`Not an ISO date: ${JSON.stringify(isoDate)}`)
+  const name = MONTH_NAMES[Number(isoDate.slice(5, 7)) - 1]
+  if (!name) throw new Error(`Out-of-range month in date: ${JSON.stringify(isoDate)}`)
+  return `${name} ${Number(isoDate.slice(8, 10))}`
 }
 
 /** 'YYYY-MM-DD' → 'YYYY-MM' (pure slice — never parses into a Date). */
