@@ -93,6 +93,8 @@ export function Accounts() {
                 {a.error === null ? (
                   <span className="text-muted">
                     fetched {a.fetched}, inserted {a.inserted}, matched {a.matched}, GC’d {a.gcPending} pending
+                    {a.uncategorized > 0 && <span className="text-warn"> · {a.uncategorized} uncategorized</span>}
+                    {a.warning !== null && <span className="text-warn"> · {a.warning}</span>}
                   </span>
                 ) : (
                   <span className="text-neg">{a.error}</span>

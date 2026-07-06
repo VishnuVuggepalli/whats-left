@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import type { ReconcileOutcome } from '../core/ports'
+import { describe, expect, it, vi } from 'vitest'
+import type { TxnDraft } from '../../shared/types'
+import { normalizePayee } from '../core/categorize/normalizer'
+import type { ExistingTxn, ReconcileOutcome } from '../core/ports'
+import { reconcile } from '../core/reconcile/reconciler'
 import { draft, getTxnRow, insertAccount, insertTxn, makeRepo } from './testSupport'
 
 function emptyOutcome(decisions: ReconcileOutcome['decisions']): ReconcileOutcome {
@@ -69,34 +72,75 @@ describe('SqliteRepo accounts', () => {
 })
 
 describe('SqliteRepo.linkCsvHistory', () => {
-  it('moves transactions to the teller account, tombstones the csv account, returns count', () => {
+  const reconcileFn = (incoming: TxnDraft[], existing: ExistingTxn[]): ReconcileOutcome =>
+    reconcile(incoming, existing, { normalize: normalizePayee })
+
+  it('moves transactions to the teller account, tombstones the csv account, returns counts', () => {
     const { db, repo } = makeRepo()
     const csvId = insertAccount(db, { sourceKind: 'csv_only' })
     const tellerId = insertAccount(db, { sourceKind: 'teller' })
-    const t1 = insertTxn(db, csvId)
-    const t2 = insertTxn(db, csvId)
-    insertTxn(db, tellerId, { source: 'teller' })
+    const t1 = insertTxn(db, csvId, { txnDate: '2026-06-01', amountCents: -100 })
+    const t2 = insertTxn(db, csvId, { txnDate: '2026-05-01', amountCents: -200 })
 
-    const moved = repo.linkCsvHistory(csvId, tellerId)
-    expect(moved).toBe(2)
+    const result = repo.linkCsvHistory(csvId, tellerId, reconcileFn)
+    expect(result).toEqual({ moved: 2, matched: 0 }) // no teller rows yet → nothing pairs
     expect(getTxnRow(db, t1)['account_id']).toBe(tellerId)
     expect(getTxnRow(db, t2)['account_id']).toBe(tellerId)
     expect(repo.getAccount(csvId)).toBeNull()
     expect(repo.getAccount(tellerId)).not.toBeNull()
   })
 
+  it('reconciles moved rows against teller rows: updates + carry + tombstoned twin', () => {
+    const { db, repo } = makeRepo()
+    const csvId = insertAccount(db, { sourceKind: 'csv_only' })
+    const tellerId = insertAccount(db, { sourceKind: 'teller' })
+    const twin = insertTxn(db, csvId, {
+      source: 'chase_csv',
+      txnDate: '2026-06-25',
+      postDate: '2026-06-27',
+      amountCents: -675,
+      importedPayee: 'Coffee House',
+      notes: 'with sam',
+      categoryId: 'food_and_drink',
+      categorySource: 'user',
+    })
+    const unmatched = insertTxn(db, csvId, { txnDate: '2026-04-01', amountCents: -5000 })
+    const tellerRow = insertTxn(db, tellerId, {
+      source: 'teller',
+      externalId: 'txn_coffee',
+      txnDate: '2026-06-27',
+      postDate: '2026-06-27',
+      amountCents: -675,
+      importedPayee: 'Coffee House',
+    })
+
+    const result = repo.linkCsvHistory(csvId, tellerId, reconcileFn)
+    expect(result).toEqual({ moved: 2, matched: 1 })
+    // the teller row took earliest txnDate + linkedSourceId + the user's edits
+    expect(getTxnRow(db, tellerRow)).toMatchObject({
+      txn_date: '2026-06-25',
+      reconciled: 1,
+      notes: 'with sam',
+      category_id: 'food_and_drink',
+      category_source: 'user',
+    })
+    // the redundant csv twin is tombstoned; the unmatched csv row lives on
+    expect(getTxnRow(db, twin)['tombstone']).toBe(1)
+    expect(getTxnRow(db, unmatched)).toMatchObject({ account_id: tellerId, tombstone: 0 })
+  })
+
   it('rejects a source account that is not csv_only', () => {
     const { db, repo } = makeRepo()
     const a = insertAccount(db, { sourceKind: 'teller' })
     const b = insertAccount(db, { sourceKind: 'teller' })
-    expect(() => repo.linkCsvHistory(a, b)).toThrow(/csv_only/)
+    expect(() => repo.linkCsvHistory(a, b, reconcileFn)).toThrow(/csv_only/)
   })
 
   it('throws on unknown accounts', () => {
     const { db, repo } = makeRepo()
     const csvId = insertAccount(db, { sourceKind: 'csv_only' })
-    expect(() => repo.linkCsvHistory('ghost', csvId)).toThrow(/ghost/)
-    expect(() => repo.linkCsvHistory(csvId, 'ghost')).toThrow(/ghost/)
+    expect(() => repo.linkCsvHistory('ghost', csvId, reconcileFn)).toThrow(/ghost/)
+    expect(() => repo.linkCsvHistory(csvId, 'ghost', reconcileFn)).toThrow(/ghost/)
   })
 })
 
@@ -153,17 +197,18 @@ describe('SqliteRepo TxnRepoPort reads', () => {
     expect(repo.listPending(acct).map((r) => r.id)).toEqual([pending])
   })
 
-  it('knownExternalIds is scoped to account + source and skips NULLs', () => {
+  it('knownExternalIds is account-scoped, source-agnostic, and skips NULLs', () => {
     const { db, repo } = makeRepo()
     const acct = insertAccount(db)
     const other = insertAccount(db)
     insertTxn(db, acct, { source: 'teller', externalId: 'txn_1' })
+    // a csv row that ADOPTED a teller id via a fuzzy merge must count as known
+    insertTxn(db, acct, { source: 'chase_csv', externalId: 'txn_adopted' })
     insertTxn(db, acct, { source: 'amex_csv', externalId: 'ref_9' })
     insertTxn(db, acct, { source: 'teller', externalId: null })
     insertTxn(db, other, { source: 'teller', externalId: 'txn_2' })
 
-    expect(repo.knownExternalIds(acct, 'teller')).toEqual(new Set(['txn_1']))
-    expect(repo.knownExternalIds(acct, 'amex_csv')).toEqual(new Set(['ref_9']))
+    expect(repo.knownExternalIds(acct)).toEqual(new Set(['txn_1', 'txn_adopted', 'ref_9']))
   })
 })
 
@@ -310,7 +355,7 @@ describe('SqliteRepo.gcPending', () => {
     expect(repo.listPending(acct)).toEqual([])
   })
 
-  it('carries notes and user category onto the replacement row', () => {
+  it('carries notes and user category onto the replacement, resolved by its TELLER id', () => {
     const { db, repo } = makeRepo()
     const acct = insertAccount(db)
     const stale = insertTxn(db, acct, {
@@ -319,8 +364,12 @@ describe('SqliteRepo.gcPending', () => {
       categoryId: 'food_and_drink',
       categorySource: 'user',
     })
-    const replacement = insertTxn(db, acct, { status: 'posted' })
-    repo.gcPending([{ id: stale, replacementId: replacement }])
+    const replacement = insertTxn(db, acct, {
+      status: 'posted',
+      source: 'teller',
+      externalId: 'txn_replacement_1',
+    })
+    repo.gcPending([{ id: stale, replacementExternalId: 'txn_replacement_1' }])
     const row = getTxnRow(db, replacement)
     expect(row).toMatchObject({
       notes: 'tip adjusted',
@@ -328,6 +377,23 @@ describe('SqliteRepo.gcPending', () => {
       category_source: 'user',
     })
     expect(getTxnRow(db, stale)['tombstone']).toBe(1)
+  })
+
+  it('resolves the replacement within the pending row’s own account', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const other = insertAccount(db)
+    const stale = insertTxn(db, acct, { status: 'pending', notes: 'mine' })
+    // same-shaped teller row on ANOTHER account must never receive the carry
+    const foreign = insertTxn(db, other, {
+      status: 'posted',
+      source: 'teller',
+      externalId: 'txn_foreign',
+    })
+    expect(() => repo.gcPending([{ id: stale, replacementExternalId: 'txn_foreign' }])).toThrow(
+      /txn_foreign/,
+    )
+    expect(getTxnRow(db, foreign)['notes']).toBeNull()
   })
 
   it('does NOT carry non-user categorization; notes still carry', () => {
@@ -340,20 +406,32 @@ describe('SqliteRepo.gcPending', () => {
       categorySource: 'llm',
       llmConfidence: 0.9,
     })
-    const replacement = insertTxn(db, acct, { status: 'posted' })
-    repo.gcPending([{ id: stale, replacementId: replacement }])
-    const row = getTxnRow(db, replacement)
-    expect(row).toMatchObject({ notes: 'note', category_id: null, category_source: null })
+    insertTxn(db, acct, { status: 'posted', source: 'teller', externalId: 'txn_repl_2' })
+    repo.gcPending([{ id: stale, replacementExternalId: 'txn_repl_2' }])
+    const rows = db
+      .prepare(`SELECT * FROM transactions WHERE external_id = 'txn_repl_2'`)
+      .all() as Array<Record<string, unknown>>
+    expect(rows[0]).toMatchObject({ notes: 'note', category_id: null, category_source: null })
   })
 
-  it('throws on unknown pending id or unknown replacement id', () => {
+  it('throws on unknown pending id or unresolvable replacement (when a carry is due)', () => {
     const { db, repo } = makeRepo()
     const acct = insertAccount(db)
     const stale = insertTxn(db, acct, { status: 'pending', notes: 'n' })
     expect(() => repo.gcPending([{ id: 'ghost' }])).toThrow(/ghost/)
-    expect(() => repo.gcPending([{ id: stale, replacementId: 'ghost' }])).toThrow(/ghost/)
+    expect(() =>
+      repo.gcPending([{ id: stale, replacementExternalId: 'txn_ghost' }]),
+    ).toThrow(/txn_ghost/)
     // failed batch rolled back: stale row not tombstoned
     expect(getTxnRow(db, stale)['tombstone']).toBe(0)
+  })
+
+  it('a missing replacement is tolerated when the pending carries no edits', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const stale = insertTxn(db, acct, { status: 'pending' })
+    repo.gcPending([{ id: stale, replacementExternalId: 'txn_ghost' }])
+    expect(getTxnRow(db, stale)['tombstone']).toBe(1)
   })
 })
 
@@ -368,6 +446,21 @@ describe('SqliteRepo settings + sync log', () => {
     repo.setSetting('ollama', { url: 'http://localhost:11434', model: 'qwen3:8b' })
     expect(repo.getSetting('ollama')).toEqual({ url: 'http://localhost:11434', model: 'qwen3:8b' })
     expect(() => repo.setSetting('bad', undefined)).toThrow(/undefined/)
+  })
+
+  it('a corrupt settings row degrades to null (logged) and self-heals on the next write', () => {
+    const { db, repo } = makeRepo()
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('app_settings', '{not json')
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(repo.getSetting('app_settings')).toBeNull() // never a SyntaxError
+      expect(errSpy).toHaveBeenCalledOnce()
+    } finally {
+      errSpy.mockRestore()
+    }
+    // next write overwrites the corrupt row — full recovery without external tooling
+    repo.setSetting('app_settings', { syncIntervalHours: 6 })
+    expect(repo.getSetting('app_settings')).toEqual({ syncIntervalHours: 6 })
   })
 
   it('insertSyncLog persists a row and returns its id', () => {

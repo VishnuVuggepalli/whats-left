@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -65,6 +65,21 @@ describe('SafeStorageSecretStore', () => {
     const stored = parsed.secrets['sandbox:k']
     expect(stored).toBeDefined()
     expect(Buffer.from(stored as string, 'base64').toString('utf8')).toBe('enc[super-secret-token]')
+  })
+
+  it('writes secrets.json owner-only (0600) on POSIX', async () => {
+    await makeStore().set('k', 'v')
+    if (process.platform === 'win32') return // POSIX modes do not apply on Windows
+    expect(statSync(filePath).mode & 0o777).toBe(0o600)
+  })
+
+  it('tightens a pre-existing world-readable secrets file back to 0600 on the next write', async () => {
+    const store = makeStore()
+    await store.set('k', 'v')
+    if (process.platform === 'win32') return // POSIX modes do not apply on Windows
+    chmodSync(filePath, 0o644)
+    await store.set('k2', 'v2')
+    expect(statSync(filePath).mode & 0o777).toBe(0o600)
   })
 
   it('scopes keys per TELLER_ENV — sandbox and development never collide', async () => {

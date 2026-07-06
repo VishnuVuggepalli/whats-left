@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Institution, SettingsDto } from '../../shared/types'
 import { EnrollmentInactiveError } from '../core/teller/client'
 import type { TellerAccount, TellerTransaction } from '../core/teller/types'
-import { tellerAccountsSchema } from '../core/teller/types'
+import { tellerAccountsSchema, tellerTransactionsSchema } from '../core/teller/types'
 import { makeRepo } from '../db/testSupport'
 import type { SqliteRepo } from '../db/repository'
 import { FakeDialog, FixedClock, InMemorySecretStore } from '../platform/fakes'
@@ -13,8 +13,12 @@ import type { LlmPort } from './categorization'
 
 const CHASE_CREDIT_CSV = readFileSync('/root/whats-left/fixtures/csv/chase_credit.csv', 'utf8')
 const CHASE_CHECKING_CSV = readFileSync('/root/whats-left/fixtures/csv/chase_checking.csv', 'utf8')
+const AMEX_EXTENDED_CSV = readFileSync('/root/whats-left/fixtures/csv/amex_extended.csv', 'utf8')
 const TELLER_ACCOUNTS: TellerAccount[] = tellerAccountsSchema.parse(
   JSON.parse(readFileSync('/root/whats-left/fixtures/teller/accounts.json', 'utf8')),
+)
+const FIXTURE_TELLER_TXNS: TellerTransaction[] = tellerTransactionsSchema.parse(
+  JSON.parse(readFileSync('/root/whats-left/fixtures/teller/transactions_chase_cc.json', 'utf8')),
 )
 
 const offlineLlm: LlmPort = {
@@ -27,6 +31,7 @@ const offlineLlm: LlmPort = {
 interface Harness {
   service: AppService
   repo: SqliteRepo
+  db: ReturnType<typeof makeRepo>['db']
   secrets: InMemorySecretStore
   dialog: FakeDialog
   opened: string[]
@@ -34,7 +39,7 @@ interface Harness {
 }
 
 function makeHarness(overrides: Partial<AppServiceDeps> = {}): Harness {
-  const { repo } = makeRepo()
+  const { db, repo } = makeRepo()
   const secrets = new InMemorySecretStore()
   const dialog = new FakeDialog()
   const opened: string[] = []
@@ -58,7 +63,7 @@ function makeHarness(overrides: Partial<AppServiceDeps> = {}): Harness {
     getApplicationId: async () => 'app_test_1',
     ...overrides,
   }
-  return { service: new AppService(deps), repo, secrets, dialog, opened, enrollmentOpts }
+  return { service: new AppService(deps), repo, db, secrets, dialog, opened, enrollmentOpts }
 }
 
 async function createCreditAccount(service: AppService): Promise<string> {
@@ -203,6 +208,117 @@ describe('importCsv', () => {
   })
 })
 
+describe('importCsv reports DB-actual counts (cross-account id collisions)', () => {
+  it('the same Amex file into a second account reports 0 new + a warning, never a lie', async () => {
+    const { service } = makeHarness()
+    const a = await service.createCsvAccount({ name: 'Amex Gold', institution: 'amex', type: 'credit' })
+    const b = await service.createCsvAccount({ name: 'Amex Plat', institution: 'amex', type: 'credit' })
+
+    const first = await service.importCsv({
+      accountId: a.id,
+      fileName: 'amex.csv',
+      content: AMEX_EXTENDED_CSV,
+      commit: true,
+    })
+    expect(first.newCount).toBeGreaterThan(0)
+    expect(first.warnings).toEqual([])
+
+    // wrong-account re-import: every insert is swallowed by ux_txn_external
+    const second = await service.importCsv({
+      accountId: b.id,
+      fileName: 'amex.csv',
+      content: AMEX_EXTENDED_CSV,
+      commit: true,
+    })
+    expect(second.newCount).toBe(0) // what the DB wrote — not the reconciler's plan
+    expect(second.warnings.some((w) => /already exist on another account/.test(w))).toBe(true)
+    expect((await service.listTransactions({ accountId: b.id })).total).toBe(0)
+  })
+})
+
+describe('uncategorized visibility (LLM offline)', () => {
+  it('importCsv reports the uncategorized count and the rows appear in Review', async () => {
+    const { service } = makeHarness()
+    const checking = await service.createCsvAccount({
+      name: 'Chase Checking',
+      institution: 'chase',
+      type: 'depository',
+    })
+    const report = await service.importCsv({
+      accountId: checking.id,
+      fileName: 'checking.csv',
+      content: CHASE_CHECKING_CSV,
+      commit: true,
+    })
+    expect(report.uncategorized).toBe(1) // Trader Joe's — no rule/cache/source hit
+
+    const review = await service.listReviewQueue()
+    expect(review).toHaveLength(1)
+    expect(review[0]).toMatchObject({
+      suggestedCategoryId: 'uncategorized',
+      confidence: 0,
+    })
+    expect(review[0]!.payee).toMatch(/trader/i)
+  })
+
+  it('a dry run reports uncategorized 0 (nothing was categorized)', async () => {
+    const { service } = makeHarness()
+    const accountId = await createCreditAccount(service)
+    const report = await service.importCsv({
+      accountId,
+      fileName: 'chase.csv',
+      content: CHASE_CREDIT_CSV,
+      commit: false,
+    })
+    expect(report.uncategorized).toBe(0)
+  })
+})
+
+describe('degraded Ollama results never poison the merchant cache', () => {
+  /** simulates an OllamaClient content-failure fallback batch */
+  function degradedLlm(): LlmPort & { requested: string[] } {
+    const fake = {
+      requested: [] as string[],
+      isAvailable: async () => true,
+      categorizeMerchants: async (merchants: string[]) => {
+        fake.requested.push(...merchants)
+        return merchants.map((merchant) => ({
+          merchant,
+          category: 'uncategorized',
+          confidence: 0,
+          warning: 'model output was not valid JSON',
+        }))
+      },
+    }
+    return fake
+  }
+
+  it('fallback entries: cache stays empty, rows stay NULL for retry, count surfaced', async () => {
+    const llm = degradedLlm()
+    const { service, repo } = makeHarness({ makeLlm: () => llm })
+    const checking = await service.createCsvAccount({
+      name: 'Chase Checking',
+      institution: 'chase',
+      type: 'depository',
+    })
+    const report = await service.importCsv({
+      accountId: checking.id,
+      fileName: 'checking.csv',
+      content: CHASE_CHECKING_CSV,
+      commit: true,
+    })
+    expect(llm.requested).toHaveLength(1) // Trader Joe's reached the LLM tier
+
+    // NOT counted as categorized; surfaced in the report
+    expect(report.uncategorized).toBe(1)
+    // NO cache row was written — the merchant will be retried next batch
+    expect(repo.get(llm.requested[0]!)).toBeNull()
+    // the row itself stays NULL (not 'uncategorized' with source llm)
+    const { rows } = await service.listTransactions({ accountId: checking.id, text: 'TRADER' })
+    expect(rows[0]).toMatchObject({ categoryId: null, categorySource: null })
+  })
+})
+
 describe('LLM tier + review queue', () => {
   /** answers every requested merchant with a fixed category+confidence */
   function llmAnswering(
@@ -271,6 +387,55 @@ describe('LLM tier + review queue', () => {
     expect(await service.listReviewQueue()).toEqual([])
   })
 
+  it('applyToExisting matches rows through normalizePayee, not raw payee equality', async () => {
+    const { service, repo } = makeHarness()
+    const account = await service.createCsvAccount({
+      name: 'Card',
+      institution: 'chase',
+      type: 'credit',
+    })
+    // two raw payee variants of the SAME merchant (both normalize to 'Starbucks')
+    const mkDraft = (importHash: string, importedPayee: string, txnDate: string) => ({
+      source: 'chase_csv' as const,
+      externalId: null,
+      importHash,
+      txnDate,
+      postDate: null,
+      amountCents: -500,
+      status: 'posted' as const,
+      rawDescription: importedPayee,
+      importedPayee,
+      sourceCategory: null,
+      counterparty: null,
+      typeCode: null,
+    })
+    const drafts = [
+      mkDraft('h1', 'STARBUCKS #552', '2026-06-01'),
+      mkDraft('h2', 'STARBUCKS 800-782-7282', '2026-06-15'),
+    ]
+    repo.applyDecisions(account.id, {
+      decisions: drafts.map((draft) => ({ kind: 'insert' as const, draft })),
+      inserted: 2,
+      matched: 0,
+      skipped: 0,
+    })
+
+    const { rows } = await service.listTransactions({ accountId: account.id })
+    expect(rows).toHaveLength(2)
+    const target = rows.find((r) => r.payee === 'STARBUCKS #552')!
+    const result = await service.recategorize({
+      txnId: target.id,
+      categoryId: 'food_and_drink',
+      scope: 'merchant',
+      applyToExisting: true,
+    })
+    expect(result.updated).toBe(2) // BOTH raw variants — one merchant, one decision
+    const after = await service.listTransactions({ accountId: account.id })
+    expect(after.rows.map((r) => r.categoryId)).toEqual(['food_and_drink', 'food_and_drink'])
+    // the cache row is keyed on the normalized merchant, matching future rows too
+    expect(repo.get('Starbucks')).toEqual({ categoryId: 'food_and_drink', locked: true })
+  })
+
   it('recategorize with merchant scope writes a locked cache row', async () => {
     const { service, repo } = makeHarness()
     const accountId = await createCreditAccount(service)
@@ -310,13 +475,88 @@ describe('syncNow error paths', () => {
     expect(report.ranAt).toBe(new Date(Date.UTC(2026, 6, 6)).toISOString())
   })
 
-  it('missing access token → error entry + sync_log row, other accounts unaffected', async () => {
+  it('missing access token → error entry + sync_log row + account flagged error', async () => {
     const { service, repo } = makeHarness()
     const id = tellerAccount(repo)
     const report = await service.syncNow()
     expect(report.accounts).toHaveLength(1)
     expect(report.accounts[0]).toMatchObject({ accountId: id, fetched: 0 })
     expect(report.accounts[0]!.error).toMatch(/no access token/)
+    // the Accounts screen renders 'error' as a danger badge — never a green 'ok'
+    expect(repo.getAccount(id)?.status).toBe('error')
+  })
+
+  it('a mid-sync transport failure flags the account status error', async () => {
+    const failingClient = {
+      listAccounts: async (): Promise<TellerAccount[]> => [],
+      listTransactions: async (): Promise<TellerTransaction[]> => {
+        throw new Error('ECONNRESET')
+      },
+    }
+    const { service, repo, secrets } = makeHarness({ makeTellerClient: () => failingClient })
+    const id = tellerAccount(repo)
+    await secrets.set(accessTokenKey('enr_chase_1'), 'tok_1')
+    const report = await service.syncNow()
+    expect(report.accounts[0]!.error).toBe('ECONNRESET')
+    expect(repo.getAccount(id)?.status).toBe('error')
+  })
+
+  it('a categorization-phase throw keeps the REAL fetched/inserted counts and flags error', async () => {
+    const fixtureClient = {
+      listAccounts: async (): Promise<TellerAccount[]> => [],
+      listTransactions: async (): Promise<TellerTransaction[]> => FIXTURE_TELLER_TXNS,
+    }
+    const explodingLlm: LlmPort = {
+      isAvailable: async () => {
+        throw new Error('llm exploded')
+      },
+      categorizeMerchants: async () => {
+        throw new Error('llm exploded')
+      },
+    }
+    const { service, repo, secrets } = makeHarness({
+      makeTellerClient: () => fixtureClient,
+      makeLlm: () => explodingLlm,
+    })
+    const id = tellerAccount(repo)
+    await secrets.set(accessTokenKey('enr_chase_1'), 'tok_1')
+    const report = await service.syncNow()
+    const entry = report.accounts[0]!
+    expect(entry.error).toMatch(/llm exploded/)
+    expect(entry.fetched).toBe(6) // the engine DID run — counts must not read 0
+    expect(entry.inserted).toBe(6)
+    // the run did not complete → never marked ok, lastSyncAt not stamped
+    expect(repo.getAccount(id)?.status).toBe('error')
+    expect(repo.getAccount(id)?.lastSyncAt).toBeNull()
+  })
+
+  it('a successful sync marks the account ok AFTER categorization and stamps lastSyncAt', async () => {
+    const fixtureClient = {
+      listAccounts: async (): Promise<TellerAccount[]> => [],
+      listTransactions: async (): Promise<TellerTransaction[]> => FIXTURE_TELLER_TXNS,
+    }
+    const { service, repo, secrets } = makeHarness({ makeTellerClient: () => fixtureClient })
+    const id = tellerAccount(repo)
+    repo.updateAccountStatus(id, 'error') // recovers from a previous failure
+    await secrets.set(accessTokenKey('enr_chase_1'), 'tok_1')
+    const report = await service.syncNow()
+    expect(report.accounts[0]!.error).toBeNull()
+    const account = repo.getAccount(id)
+    expect(account?.status).toBe('ok')
+    expect(account?.lastSyncAt).toBe(report.ranAt) // 'Never synced' is finally gone
+  })
+
+  it('per-account sync entries surface the uncategorized count', async () => {
+    const fixtureClient = {
+      listAccounts: async (): Promise<TellerAccount[]> => [],
+      listTransactions: async (): Promise<TellerTransaction[]> => FIXTURE_TELLER_TXNS,
+    }
+    const { service, repo, secrets } = makeHarness({ makeTellerClient: () => fixtureClient })
+    tellerAccount(repo)
+    await secrets.set(accessTokenKey('enr_chase_1'), 'tok_1')
+    const report = await service.syncNow()
+    // LLM offline: rows the rule/cache/source tiers missed stay uncategorized
+    expect(report.accounts[0]!.uncategorized).toBeGreaterThan(0)
   })
 
   it('enrollment-inactive → account flagged reconnect_required', async () => {
@@ -458,6 +698,40 @@ describe('exportData', () => {
     expect(parsed.accounts).toHaveLength(1)
     expect(parsed.transactions).toHaveLength(9)
     expect(parsed.categories.length).toBeGreaterThan(10)
+  })
+})
+
+describe('settings change notification (scheduler re-arm hook)', () => {
+  it('fires onSettingsChanged with the merged settings after an interval change', async () => {
+    const seen: SettingsDto[] = []
+    const { service } = makeHarness({ onSettingsChanged: (s) => seen.push(s) })
+    await service.updateSettings({ syncIntervalHours: 1 })
+    expect(seen).toHaveLength(1)
+    expect(seen[0]).toMatchObject({ syncIntervalHours: 1, tellerEnv: 'sandbox' })
+    await service.updateSettings({ syncIntervalHours: 12 })
+    expect(seen).toHaveLength(2)
+    expect(seen[1]!.syncIntervalHours).toBe(12)
+  })
+
+  it('does NOT fire when validation rejects the patch', async () => {
+    const seen: SettingsDto[] = []
+    const { service } = makeHarness({ onSettingsChanged: (s) => seen.push(s) })
+    await expect(service.updateSettings({ syncIntervalHours: 0 })).rejects.toThrow()
+    expect(seen).toEqual([])
+  })
+
+  it('corrupt stored settings degrade to defaults instead of bricking getSettings', async () => {
+    const { service, db } = makeHarness()
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('app_settings', '{oops')
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(await service.getSettings()).toMatchObject({ tellerEnv: 'sandbox', syncIntervalHours: 6 })
+      // the next write self-heals the row
+      await service.updateSettings({ syncIntervalHours: 3 })
+    } finally {
+      errSpy.mockRestore()
+    }
+    expect((await service.getSettings()).syncIntervalHours).toBe(3)
   })
 })
 

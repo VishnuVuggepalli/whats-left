@@ -74,10 +74,18 @@ export function updateAccountStatus(db: Db, id: string, status: AccountStatus): 
   if (info.changes === 0) throw new Error(`updateAccountStatus: unknown account ${id}`)
 }
 
+/** successful sync: back to 'ok' and stamp last_sync_at (Accounts screen renders it) */
+export function markSynced(db: Db, id: string, lastSyncAt: string): void {
+  const info = db
+    .prepare(`UPDATE accounts SET status = 'ok', last_sync_at = ? WHERE id = ? AND tombstone = 0`)
+    .run(lastSyncAt, id)
+  if (info.changes === 0) throw new Error(`markSynced: unknown account ${id}`)
+}
+
 /**
  * Rewrite csv_only history onto the linked Teller account and tombstone the
- * csv account. Returns the number of moved rows; the reconcile pass over the
- * merged account happens at the caller level (plan §5b).
+ * csv account. Returns the number of moved rows; SqliteRepo.linkCsvHistory
+ * wraps this with the reconcile pass over the merged account (plan §5b).
  */
 export function linkCsvHistory(db: Db, csvAccountId: string, tellerAccountId: string): number {
   const run = db.transaction((): number => {

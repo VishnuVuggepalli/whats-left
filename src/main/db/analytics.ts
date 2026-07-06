@@ -38,14 +38,20 @@ export function getDashboard(db: Db, month: string): DashboardData {
     throw new Error(`getDashboard: month must be 'YYYY-MM', got ${JSON.stringify(month)}`)
   }
 
+  // NULL-category rows bucket into the taxonomy's 'uncategorized' row so
+  // spend stays visible even when categorization is behind (Ollama offline).
   const byCategory = (
     db
       .prepare(
-        `SELECT v.category_id AS categoryId, c.name AS categoryName, v.net_cents AS netCents
+        `SELECT COALESCE(v.category_id, 'uncategorized') AS categoryId,
+                c.name AS categoryName,
+                SUM(v.net_cents) AS netCents
          FROM v_monthly_category v
-         JOIN categories c ON c.id = v.category_id
-         WHERE v.month = ? AND c.excluded_from_spend = 0 AND c.is_income = 0
-         ORDER BY v.net_cents ASC, c.name ASC`,
+         LEFT JOIN categories c ON c.id = COALESCE(v.category_id, 'uncategorized')
+         WHERE v.month = ?
+           AND COALESCE(c.excluded_from_spend, 0) = 0 AND COALESCE(c.is_income, 0) = 0
+         GROUP BY COALESCE(v.category_id, 'uncategorized')
+         ORDER BY SUM(v.net_cents) ASC, c.name ASC`,
       )
       .all(month) as Array<{ categoryId: string; categoryName: string; netCents: number }>
   ).map((r) => ({ ...r }))

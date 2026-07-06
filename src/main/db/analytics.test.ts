@@ -52,14 +52,39 @@ describe('SqliteRepo.getDashboard', () => {
     })
   })
 
-  it('uncategorized rows do not leak into byCategory', () => {
+  it('uncategorized rows COUNT as spend and are VISIBLE as the Uncategorized bucket', () => {
     const { db, repo } = makeRepo()
     const { card } = seedLedger(db)
     insertTxn(db, card, { txnDate: '2026-06-18', amountCents: -999, importedPayee: 'Mystery' })
     const dash = repo.getDashboard('2026-06')
-    expect(dash.byCategory.map((c) => c.categoryId)).toEqual([
-      'general_merchandise',
-      'food_and_drink',
+    // byCategory: NULL-category rows bucket into the taxonomy 'uncategorized' row
+    expect(dash.byCategory).toEqual([
+      { categoryId: 'general_merchandise', categoryName: 'Shopping', netCents: -8000 },
+      { categoryId: 'food_and_drink', categoryName: 'Dining & Drinks', netCents: -7500 },
+      { categoryId: 'uncategorized', categoryName: 'Uncategorized', netCents: -999 },
+    ])
+    // trend: the same row lands in spend_cents (COALESCE in v_monthly_totals)
+    const june = dash.trend.find((t) => t.month === '2026-06')
+    expect(june).toEqual({ month: '2026-06', spendCents: -15500 - 999, incomeCents: 300000 })
+    // topMerchants already included them — all three views now agree
+    expect(dash.topMerchants.map((m) => m.payee)).toContain('Mystery')
+  })
+
+  it('an explicit uncategorized categorization and NULL rows share one bucket', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db, { type: 'credit' })
+    insertTxn(db, acct, { txnDate: '2026-08-02', amountCents: -100, importedPayee: 'A' })
+    insertTxn(db, acct, {
+      txnDate: '2026-08-03',
+      amountCents: -200,
+      importedPayee: 'B',
+      categoryId: 'uncategorized',
+      categorySource: 'llm',
+      llmConfidence: 0.4,
+    })
+    const dash = repo.getDashboard('2026-08')
+    expect(dash.byCategory).toEqual([
+      { categoryId: 'uncategorized', categoryName: 'Uncategorized', netCents: -300 },
     ])
   })
 

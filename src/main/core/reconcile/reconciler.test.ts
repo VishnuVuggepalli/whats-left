@@ -173,6 +173,70 @@ describe('reconcile — ±7 day fuzzy window on post-or-txn date', () => {
   })
 })
 
+describe('reconcile — pass 0 same-id state delta (ids often survive pending→posted)', () => {
+  it('same teller id, pending→posted: emits a match that upgrades status and fills postDate', () => {
+    const row = makeExisting({
+      source: 'teller', externalId: 'txn_same', importHash: 'H_same',
+      status: 'pending', postDate: null, txnDate: '2026-07-01', amountCents: -640,
+    })
+    const draft = makeDraft({
+      source: 'teller', externalId: 'txn_same', importHash: 'H_same',
+      status: 'posted', postDate: '2026-07-03', txnDate: '2026-07-01', amountCents: -640,
+    })
+    const out = reconcile([draft], [row])
+    const m = expectMatch(decisionAt(out, 0))
+    expect(m.existingId).toBe(row.id)
+    expect(m.updates.status).toBe('posted')
+    expect(m.updates.postDate).toBe('2026-07-03')
+    expect(out).toMatchObject({ inserted: 0, matched: 1, skipped: 0 })
+  })
+
+  it('same-id dup with an earlier draft txnDate: match carrying txnDate = min', () => {
+    const row = makeExisting({ source: 'teller', externalId: 'txn_d', importHash: 'H_d', txnDate: '2026-07-05', amountCents: -100 })
+    const draft = makeDraft({ source: 'teller', externalId: 'txn_d', importHash: 'H_d', txnDate: '2026-07-02', amountCents: -100 })
+    const m = expectMatch(decisionAt(reconcile([draft], [row]), 0))
+    expect(m.updates.txnDate).toBe('2026-07-02')
+  })
+
+  it('same-id dup with NO state delta stays a skip_duplicate', () => {
+    const row = makeExisting({ source: 'teller', externalId: 'txn_n', importHash: 'H_n', status: 'posted', txnDate: '2026-07-01', postDate: '2026-07-01', amountCents: -100 })
+    const draft = makeDraft({ source: 'teller', externalId: 'txn_n', importHash: 'H_n', status: 'posted', txnDate: '2026-07-01', postDate: '2026-07-01', amountCents: -100 })
+    const out = reconcile([draft], [row])
+    expect(decisionAt(out, 0)).toMatchObject({ kind: 'skip_duplicate', existingId: row.id })
+    expect(out).toMatchObject({ inserted: 0, matched: 0, skipped: 1 })
+  })
+})
+
+describe('reconcile — adopted external ids (id value is the namespace, not row.source)', () => {
+  it('pass 0 catches a teller draft whose id was adopted by a csv-source row: no duplicate insert', () => {
+    const row = makeExisting({
+      source: 'chase_csv', externalId: 'txn_adopted', importHash: 'csv_h',
+      status: 'posted', txnDate: '2026-06-25', postDate: '2026-06-27', amountCents: -675,
+    })
+    const draft = makeDraft({
+      source: 'teller', externalId: 'txn_adopted', importHash: 'teller_h',
+      status: 'posted', txnDate: '2026-06-27', postDate: '2026-06-27', amountCents: -675,
+    })
+    const out = reconcile([draft], [row])
+    expect(out.inserted).toBe(0)
+    expect(decisionAt(out, 0)).toMatchObject({ kind: 'skip_duplicate', existingId: row.id })
+  })
+
+  it('two DIFFERENT teller ids never fuzzy-merge, even when one sits on a csv-source row', () => {
+    const row = makeExisting({ source: 'chase_csv', externalId: 'txn_aaa', txnDate: '2026-06-01', amountCents: -999 })
+    const draft = makeDraft({ source: 'teller', externalId: 'txn_bbb', txnDate: '2026-06-01', amountCents: -999 })
+    const out = reconcile([draft], [row])
+    expect(decisionAt(out, 0).kind).toBe('insert')
+    expect(out.matched).toBe(0)
+  })
+
+  it('an amex-namespace id on a csv row still merges with a teller-id draft (cross-namespace)', () => {
+    const row = makeExisting({ source: 'amex_csv', externalId: '320261234567890', txnDate: '2026-06-01', amountCents: -999 })
+    const draft = makeDraft({ source: 'teller', externalId: 'txn_zzz', txnDate: '2026-06-01', amountCents: -999 })
+    expect(decisionAt(reconcile([draft], [row]), 0).kind).toBe('match')
+  })
+})
+
 describe('reconcile — status transitions', () => {
   it('pending existing + posted draft → status update to posted', () => {
     const row = makeExisting({ source: 'teller', externalId: 'tel_p1', status: 'pending', txnDate: '2026-07-01', amountCents: -640 })

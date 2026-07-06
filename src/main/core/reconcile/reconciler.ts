@@ -1,18 +1,24 @@
 /**
  * Cross-source reconciler (plan §5c) — adapted from Actual Budget's matcher.
  *
- * Pass 0  idempotency: exact (source, importHash) or same-namespace
- *         (source, externalId) hit → skip_duplicate, row consumed.
+ * Pass 0  idempotency: exact (source, importHash) or external-id hit (keyed by
+ *         id VALUE — an adopted id on a cross-source row still counts) →
+ *         match when the draft carries a state delta (pending→posted upgrade,
+ *         postDate fill, earlier txnDate), skip_duplicate when it does not.
+ *         Either way the row is consumed.
  * Pass 1  fuzzy candidates: same account (asserted uniform), EXACT amountCents,
  *         post-or-txn date within ±7 days, sorted by date distance ascending.
  * Pass 2  prefer the candidate whose normalized payee equals the draft's.
  * Pass 3  else first remaining candidate.
  *
  * Review-critical semantics (v2):
- * - strictIdChecking is NAMESPACE-SCOPED: a fuzzy merge is blocked only when
- *   draft and candidate BOTH carry bank-issued externalIds in the SAME source
- *   namespace and the ids differ. Synthesized importHashes are never ids;
- *   cross-source pairs (csv ↔ teller) are always fuzzy-eligible.
+ * - strictIdChecking is NAMESPACE-SCOPED, and the namespace is derived from
+ *   the ID ITSELF (idNamespace: 'txn_…' = teller, digits = amex), not from
+ *   row.source — a csv row that adopted a teller id keeps teller semantics.
+ *   A fuzzy merge is blocked when both sides carry ids of the same known
+ *   namespace and the ids differ (unrecognized id shapes fall back to the
+ *   old same-source rule). Synthesized importHashes are never ids;
+ *   cross-namespace pairs (csv ↔ teller) are always fuzzy-eligible.
  * - Candidate consumption: each existing row is claimed by at most one
  *   incoming draft per reconcile() call. Pass 0 runs for the whole batch
  *   before any fuzzy matching so an exact duplicate always claims its row
@@ -50,13 +56,20 @@ export function reconcile(
   const decisions: Array<ReconcileDecision | null> = incoming.map(() => null)
 
   // Pass 0 — idempotency for the whole batch before any fuzzy matching.
+  // A dup that carries a state delta (pending→posted, postDate fill, earlier
+  // txnDate, id adoption) is a MATCH so the delta is persisted — the common
+  // case where the bank keeps the same id across pending→posted must not be
+  // dropped as a no-op skip (plan §5a).
   incoming.forEach((draft, i) => {
     const dup =
       byHash.get(nsKey(draft.source, draft.importHash)) ??
-      (draft.externalId !== null ? byExternalId.get(nsKey(draft.source, draft.externalId)) : undefined)
+      (draft.externalId !== null ? byExternalId.get(draft.externalId) : undefined)
     if (dup !== undefined) {
       consumedIds.add(dup.id)
-      decisions[i] = { kind: 'skip_duplicate', draft, existingId: dup.id }
+      const updates = buildUpdates(dup, draft)
+      decisions[i] = hasStateDelta(updates)
+        ? { kind: 'match', existingId: dup.id, draft, updates }
+        : { kind: 'skip_duplicate', draft, existingId: dup.id }
     }
   })
 
@@ -90,6 +103,12 @@ function nsKey(source: Source, value: string): string {
   return `${source}\u0000${value}`
 }
 
+/**
+ * byHash stays source-namespaced (hashes are synthesized per source), but
+ * byExternalId is keyed by the id VALUE alone: bank-issued ids are globally
+ * namespace-unique (ux_txn_external), and a csv row that adopted a teller id
+ * via an earlier fuzzy merge must still register as that teller transaction.
+ */
 function indexExisting(existing: ExistingTxn[]): {
   byHash: Map<string, ExistingTxn>
   byExternalId: Map<string, ExistingTxn>
@@ -99,12 +118,21 @@ function indexExisting(existing: ExistingTxn[]): {
   for (const row of existing) {
     const hashKey = nsKey(row.source, row.importHash)
     if (!byHash.has(hashKey)) byHash.set(hashKey, row)
-    if (row.externalId !== null) {
-      const idKey = nsKey(row.source, row.externalId)
-      if (!byExternalId.has(idKey)) byExternalId.set(idKey, row)
+    if (row.externalId !== null && !byExternalId.has(row.externalId)) {
+      byExternalId.set(row.externalId, row)
     }
   }
   return { byHash, byExternalId }
+}
+
+/** anything beyond the always-present linkedSourceId means the draft carries news */
+function hasStateDelta(updates: MatchUpdates): boolean {
+  return (
+    updates.txnDate !== undefined ||
+    updates.postDate !== undefined ||
+    updates.status !== undefined ||
+    updates.externalId !== undefined
+  )
 }
 
 /** posting-or-transaction date: the best-known "when it hit the account" */
@@ -112,17 +140,27 @@ function anchorDate(row: { postDate: IsoDate | null; txnDate: IsoDate }): IsoDat
   return row.postDate ?? row.txnDate
 }
 
+/** issuing namespace of a bank id, derived from the id itself (not row.source) */
+export function idNamespace(externalId: string): 'teller' | 'amex' | 'unknown' {
+  if (/^txn_/.test(externalId)) return 'teller'
+  if (/^\d+$/.test(externalId)) return 'amex'
+  return 'unknown'
+}
+
 /**
- * Namespace-scoped strictIdChecking: block only when both sides carry
- * bank-issued ids from the SAME source namespace and the ids differ.
+ * Namespace-scoped strictIdChecking: two DIFFERENT ids from the same known
+ * issuing namespace are two different bank transactions, no matter which
+ * source's row carries them (a csv row may have adopted a teller id).
+ * Ids of unrecognized shape fall back to the same-source rule.
  */
 function isStrictIdBlocked(draft: TxnDraft, row: ExistingTxn): boolean {
-  return (
-    draft.externalId !== null &&
-    row.externalId !== null &&
-    draft.source === row.source &&
-    draft.externalId !== row.externalId
-  )
+  if (draft.externalId === null || row.externalId === null) return false
+  if (draft.externalId === row.externalId) return false
+  const draftNs = idNamespace(draft.externalId)
+  const rowNs = idNamespace(row.externalId)
+  if (draftNs !== 'unknown' && draftNs === rowNs) return true
+  if ((draftNs === 'unknown' || rowNs === 'unknown') && draft.source === row.source) return true
+  return false
 }
 
 /** unconsumed rows with exact amount, within ±7 days, sorted by date distance */

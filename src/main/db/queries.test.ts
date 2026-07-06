@@ -157,6 +157,33 @@ describe('SqliteRepo categorization support', () => {
     expect(rows[0]).toMatchObject({ importedPayee: 'Mystery Shop', accountId: acct })
   })
 
+  it('listReviewQueue surfaces NULL-category rows as uncategorized at confidence 0', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const uncat = insertTxn(db, acct, {
+      txnDate: '2026-06-11',
+      amountCents: -1200,
+      importedPayee: 'Mystery Shop',
+      rawDescription: 'MYSTERY*SHOP',
+    })
+    insertTxn(db, acct, { categoryId: 'travel', categorySource: 'user' })
+    const tomb = insertTxn(db, acct)
+    db.prepare('UPDATE transactions SET tombstone = 1 WHERE id = ?').run(tomb)
+
+    const queue = repo.listReviewQueue()
+    expect(queue).toEqual([
+      {
+        txnId: uncat,
+        payee: 'Mystery Shop',
+        rawDescription: 'MYSTERY*SHOP',
+        amountCents: -1200,
+        txnDate: '2026-06-11',
+        suggestedCategoryId: 'uncategorized',
+        confidence: 0,
+      },
+    ])
+  })
+
   it('listReviewQueue returns low-confidence LLM rows only', () => {
     const { db, repo } = makeRepo()
     const acct = insertAccount(db)
@@ -238,18 +265,21 @@ describe('SqliteRepo.recategorize', () => {
     expect(cacheRow).toMatchObject({ source: 'user', locked: 1 })
   })
 
-  it('applyToExisting updates same-payee non-user rows only and reports the count', () => {
+  it('applyToExisting bulk-updates the passed ids, never touching user-categorized rows', () => {
     const { db, repo } = makeRepo()
     const acct = insertAccount(db)
     const target = insertTxn(db, acct, { importedPayee: 'Blue Bottle', categorySource: 'llm', categoryId: 'general_merchandise' })
-    const llmTwin = insertTxn(db, acct, { importedPayee: 'Blue Bottle', categorySource: 'llm', categoryId: 'general_merchandise', llmConfidence: 0.6 })
-    const uncatTwin = insertTxn(db, acct, { importedPayee: 'Blue Bottle' })
+    const llmTwin = insertTxn(db, acct, { importedPayee: 'SQ *BLUE BOTTLE', categorySource: 'llm', categoryId: 'general_merchandise', llmConfidence: 0.6 })
+    const uncatTwin = insertTxn(db, acct, { importedPayee: 'BLUE BOTTLE OAKLAND CA' })
     const userTwin = insertTxn(db, acct, { importedPayee: 'Blue Bottle', categorySource: 'user', categoryId: 'entertainment' })
     const otherPayee = insertTxn(db, acct, { importedPayee: 'Chipotle', categorySource: 'llm', categoryId: 'general_merchandise' })
 
+    // caller (AppService) resolved the same-merchant ids through normalizePayee;
+    // userTwin is passed in on purpose — the SQL guard must protect it anyway
     const res = repo.recategorize(
       { txnId: target, categoryId: 'food_and_drink', scope: 'merchant', applyToExisting: true },
-      'blue bottle',
+      'Blue Bottle',
+      [llmTwin, uncatTwin, userTwin],
     )
     // target + llmTwin + uncatTwin
     expect(res).toEqual({ updated: 3 })
@@ -260,9 +290,22 @@ describe('SqliteRepo.recategorize', () => {
       llm_confidence: null,
     })
     expect(getTxnRow(db, uncatTwin)).toMatchObject({ category_id: 'food_and_drink', category_source: 'cache' })
-    // user rows are immune (invariant 5)
+    // user rows are immune (invariant 5), even when their id is passed in
     expect(getTxnRow(db, userTwin)).toMatchObject({ category_id: 'entertainment', category_source: 'user' })
     expect(getTxnRow(db, otherPayee)['category_id']).toBe('general_merchandise')
+  })
+
+  it('listMerchantCandidates returns live non-user rows with their raw payees', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const target = insertTxn(db, acct, { importedPayee: 'Blue Bottle' })
+    const candidate = insertTxn(db, acct, { importedPayee: 'SQ *BLUE BOTTLE', categorySource: 'llm', categoryId: 'general_merchandise' })
+    insertTxn(db, acct, { importedPayee: 'Blue Bottle', categorySource: 'user', categoryId: 'entertainment' })
+    const tomb = insertTxn(db, acct, { importedPayee: 'Blue Bottle' })
+    db.prepare('UPDATE transactions SET tombstone = 1 WHERE id = ?').run(tomb)
+
+    const candidates = repo.listMerchantCandidates(target)
+    expect(candidates).toEqual([{ id: candidate, importedPayee: 'SQ *BLUE BOTTLE' }])
   })
 
   it('validates txn id, category id, and merchant name for merchant scope', () => {

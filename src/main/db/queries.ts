@@ -123,17 +123,35 @@ export function listUncategorized(db: Db): UncategorizedTxn[] {
   }))
 }
 
+/**
+ * The review queue holds BOTH low-confidence LLM guesses AND rows no tier
+ * could categorize at all (category_id NULL — e.g. Ollama offline). The
+ * latter surface with the 'uncategorized' suggestion at confidence 0 so they
+ * are never invisible to the user.
+ */
 export function listReviewQueue(db: Db): ReviewItem[] {
   const rows = db
     .prepare(
       `SELECT * FROM transactions
-       WHERE category_source = 'llm' AND llm_confidence < ? AND category_id IS NOT NULL
-         AND tombstone = 0
+       WHERE tombstone = 0
+         AND (category_id IS NULL
+              OR (category_source = 'llm' AND llm_confidence < ? AND category_id IS NOT NULL))
        ORDER BY txn_date DESC, id ASC`,
     )
     .all(REVIEW_CONFIDENCE_THRESHOLD) as TxnRow[]
   return rows.map((r) => {
-    if (r.category_id === null || r.llm_confidence === null) {
+    if (r.category_id === null) {
+      return {
+        txnId: r.id,
+        payee: r.imported_payee,
+        rawDescription: r.raw_description,
+        amountCents: r.amount_cents,
+        txnDate: r.txn_date,
+        suggestedCategoryId: 'uncategorized',
+        confidence: 0,
+      }
+    }
+    if (r.llm_confidence === null) {
       throw new Error(`review queue: row ${r.id} lost category/confidence mid-query`)
     }
     return {
@@ -216,27 +234,45 @@ export function cacheSet(
   )
 }
 
+/** a live non-user-categorized row, candidate for merchant-scope bulk updates */
+export interface MerchantCandidate {
+  id: string
+  importedPayee: string
+}
+
+export function listMerchantCandidates(db: Db, excludeTxnId: string): MerchantCandidate[] {
+  const rows = db
+    .prepare(
+      `SELECT id, imported_payee FROM transactions
+       WHERE tombstone = 0 AND id != ?
+         AND (category_source IS NULL OR category_source != 'user')`,
+    )
+    .all(excludeTxnId) as Array<{ id: string; imported_payee: string }>
+  return rows.map((r) => ({ id: r.id, importedPayee: r.imported_payee }))
+}
+
 /**
  * Two-action recategorize (plan §6):
  * - scope 'txn': this row only, category_source='user', no cache write
  * - scope 'merchant': row update + locked user cache row; with applyToExisting,
- *   also updates rows sharing the same imported_payee whose category was NOT
- *   set by the user (those take category_source='cache').
- * Normalization is identity in v1 (normalizedPayee = imported_payee), so the
- * "same merchant" match is exact imported_payee equality.
+ *   the caller supplies the same-merchant row ids (matched through the SAME
+ *   normalizer that keys the merchant cache — raw imported_payee equality is
+ *   NOT the cache key) and those rows take category_source='cache'. Rows the
+ *   user categorized are never touched, even if their ids are passed in.
  */
 export function recategorize(
   db: Db,
   input: RecategorizeInput,
   normalizedMerchant: string,
+  applyToTxnIds: readonly string[] = [],
 ): { updated: number } {
   assertCategoryExists(db, input.categoryId)
   if (input.scope === 'merchant' && normalizedMerchant.trim() === '') {
     throw new Error('recategorize: normalized merchant is required for merchant scope')
   }
   const target = db
-    .prepare('SELECT imported_payee FROM transactions WHERE id = ? AND tombstone = 0')
-    .get(input.txnId) as { imported_payee: string } | undefined
+    .prepare('SELECT id FROM transactions WHERE id = ? AND tombstone = 0')
+    .get(input.txnId) as { id: string } | undefined
   if (!target) throw new Error(`recategorize: unknown transaction ${input.txnId}`)
 
   const run = db.transaction((): number => {
@@ -250,15 +286,16 @@ export function recategorize(
         confidence: null,
         locked: true,
       })
-      if (input.applyToExisting === true) {
+      if (input.applyToExisting === true && applyToTxnIds.length > 0) {
+        const placeholders = applyToTxnIds.map(() => '?').join(', ')
         const info = db
           .prepare(
             `UPDATE transactions
              SET category_id = ?, category_source = 'cache', llm_confidence = NULL
-             WHERE imported_payee = ? AND id != ? AND tombstone = 0
+             WHERE id IN (${placeholders}) AND id != ? AND tombstone = 0
                AND (category_source IS NULL OR category_source != 'user')`,
           )
-          .run(input.categoryId, target.imported_payee, input.txnId)
+          .run(input.categoryId, ...applyToTxnIds, input.txnId)
         updated += info.changes
       }
     }

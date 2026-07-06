@@ -145,6 +145,8 @@ describe('end-to-end pipeline: CSV backfill → link → Teller sync → dashboa
         inserted: 1, // only the new pending row
         matched: 5, // every posted fixture txn found its CSV twin
         gcPending: 0,
+        uncategorized: 1, // the new pending row — LLM offline in this world
+        warning: null,
         error: null,
       },
     ])
@@ -198,6 +200,9 @@ describe('end-to-end pipeline: CSV backfill → link → Teller sync → dashboa
     const before = (await service.listTransactions({ accountId: tellerAccountId })).total
     const second = await service.syncNow()
     expect(second.accounts[0]!.inserted).toBe(0)
+    // adopted teller ids on csv rows register in pass 0 — the merged overlap
+    // is NOT re-reported as matched on every subsequent sync
+    expect(second.accounts[0]!.matched).toBe(0)
     expect(second.accounts[0]!.gcPending).toBe(0)
     expect((await service.listTransactions({ accountId: tellerAccountId })).total).toBe(before)
   })
@@ -217,9 +222,13 @@ describe('end-to-end pipeline: CSV backfill → link → Teller sync → dashboa
     // transfers/payments/income never appear as spend categories
     expect(byCategory.has('loan_payments')).toBe(false)
     expect(byCategory.has('income')).toBe(false)
+    // rows no tier could categorize stay VISIBLE as the Uncategorized bucket
+    expect(byCategory.get('uncategorized')).toBe(-5423)
 
     const june = dash.trend.find((t) => t.month === '2026-06')
-    expect(june).toEqual({ month: '2026-06', spendCents: -64710, incomeCents: 250000 })
+    // -64710 categorized spend + -5423 uncategorized (Trader Joe's; LLM offline)
+    // — NULL-category posted rows COUNT as spend, they never silently vanish
+    expect(june).toEqual({ month: '2026-06', spendCents: -64710 - 5423, incomeCents: 250000 })
 
     // §5d: card autopay leaving checking ≈ payment received on the card
     expect(dash.paymentsIntegrity).toEqual({

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { TellerEnv } from '../../shared/types'
 import type { SecretStore } from '../core/ports'
@@ -146,11 +146,20 @@ export class SafeStorageSecretStore implements SecretStore, KvSecretBackend {
     return { version: FILE_VERSION, secrets: secrets as Record<string, string> }
   }
 
-  /** write-then-rename so a crash mid-write can never truncate the store */
+  /**
+   * write-then-rename so a crash mid-write can never truncate the store.
+   * Owner-only (0600): the ciphertext must not be world-readable — on Linux
+   * without a keyring, safeStorage's basic_text backend uses a well-known key,
+   * so file permissions are the real confidentiality boundary. The mode option
+   * only applies when the tmp file is created, so chmod both paths explicitly;
+   * chmodSync is effectively a no-op on Windows and correct on POSIX.
+   */
   private write(file: SecretsFile): void {
     mkdirSync(dirname(this.filePath), { recursive: true })
     const tmp = `${this.filePath}.tmp`
-    writeFileSync(tmp, JSON.stringify(file, null, 2), 'utf8')
+    writeFileSync(tmp, JSON.stringify(file, null, 2), { encoding: 'utf8', mode: 0o600 })
+    chmodSync(tmp, 0o600)
     renameSync(tmp, this.filePath)
+    chmodSync(this.filePath, 0o600)
   }
 }

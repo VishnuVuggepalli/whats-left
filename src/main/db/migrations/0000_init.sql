@@ -102,6 +102,9 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- Analytics views. Spend = net signed sum over non-excluded categories.
+-- NULL-category (uncategorized) posted rows COUNT as spend and stay VISIBLE
+-- in every view (COALESCE) — the headline number must never silently shrink
+-- because categorization is behind.
 CREATE VIEW IF NOT EXISTS v_monthly_category AS
 SELECT
   strftime('%Y-%m', t.txn_date) AS month,
@@ -115,8 +118,8 @@ GROUP BY strftime('%Y-%m', t.txn_date), t.category_id;
 CREATE VIEW IF NOT EXISTS v_monthly_totals AS
 SELECT
   strftime('%Y-%m', t.txn_date) AS month,
-  SUM(CASE WHEN c.is_income = 0 AND c.excluded_from_spend = 0 THEN t.amount_cents ELSE 0 END) AS spend_cents,
-  SUM(CASE WHEN c.is_income = 1 THEN t.amount_cents ELSE 0 END) AS income_cents
+  SUM(CASE WHEN COALESCE(c.is_income, 0) = 0 AND COALESCE(c.excluded_from_spend, 0) = 0 THEN t.amount_cents ELSE 0 END) AS spend_cents,
+  SUM(CASE WHEN COALESCE(c.is_income, 0) = 1 THEN t.amount_cents ELSE 0 END) AS income_cents
 FROM transactions t
 LEFT JOIN categories c ON c.id = t.category_id
 WHERE t.tombstone = 0 AND t.status = 'posted'

@@ -44,15 +44,31 @@ export interface ReconcileOutcome {
   skipped: number
 }
 
+/** what the repository ACTUALLY persisted for a reconcile outcome */
+export interface ApplyCounts {
+  inserted: number
+  matched: number
+  skipped: number
+}
+
 /** repository port used by SyncEngine and CSV import pipeline */
 export interface TxnRepoPort {
   /** existing rows for an account with post/txn date >= fromDate (or all if null) */
   listExisting(accountId: string, fromDate: IsoDate | null): ExistingTxn[]
   listPending(accountId: string): ExistingTxn[]
-  applyDecisions(accountId: string, outcome: ReconcileOutcome): void
-  /** tombstone stale pendings; carry user edits when replacementId given */
-  gcPending(ids: Array<{ id: string; replacementId?: string }>): void
-  knownExternalIds(accountId: string, source: Source): Set<string>
+  /** returns the DB-actual counts (INSERT OR IGNORE can swallow inserts) */
+  applyDecisions(accountId: string, outcome: ReconcileOutcome): ApplyCounts
+  /**
+   * Tombstone stale pendings; carry user edits when a replacement is given.
+   * replacementExternalId is the BANK-ISSUED (Teller) id of the replacing row
+   * — never a local row id; the repo resolves it within the pending's account.
+   */
+  gcPending(ids: Array<{ id: string; replacementExternalId?: string }>): void
+  /**
+   * Every non-NULL external id on the account, regardless of row source —
+   * a csv row that adopted a teller id via a fuzzy merge still counts.
+   */
+  knownExternalIds(accountId: string): Set<string>
 }
 
 export interface SecretStore {

@@ -89,10 +89,19 @@ function setupTray(win: BrowserWindow, service: AppService): Tray {
 const logError = (context: string) => (err: unknown) =>
   console.error(`[whats-left] ${context}:`, err)
 
-async function startScheduler(service: AppService): Promise<void> {
-  const settings = await service.getSettings()
-  const intervalMs = settings.syncIntervalHours * 60 * 60 * 1000
-  setInterval(() => void service.syncNow().catch(logError('scheduled sync')), intervalMs)
+/**
+ * Re-armable sync scheduler: arm() replaces the interval so a settings change
+ * (updateSettings → onSettingsChanged) takes effect immediately — no restart.
+ */
+function makeScheduler(service: AppService): { arm: (settings: SettingsDto) => void } {
+  let timer: NodeJS.Timeout | null = null
+  return {
+    arm: (settings) => {
+      if (timer !== null) clearInterval(timer)
+      const intervalMs = settings.syncIntervalHours * 60 * 60 * 1000
+      timer = setInterval(() => void service.syncNow().catch(logError('scheduled sync')), intervalMs)
+    },
+  }
 }
 
 async function main(): Promise<void> {
@@ -115,6 +124,8 @@ async function main(): Promise<void> {
   )
 
   let win: BrowserWindow | null = null
+  // assigned after the service exists; the callback tolerates the gap
+  let rearmScheduler: ((settings: SettingsDto) => void) | null = null
   const service = new AppService({
     repo,
     secrets,
@@ -131,12 +142,15 @@ async function main(): Promise<void> {
       if (stored !== null) return stored
       throw new Error('Teller application id not configured (set TELLER_APPLICATION_ID)')
     },
+    onSettingsChanged: (settings) => rearmScheduler?.(settings),
   })
 
   registerIpc(ipcMain, service)
   win = createWindow()
   setupTray(win, service)
-  await startScheduler(service)
+  const scheduler = makeScheduler(service)
+  rearmScheduler = scheduler.arm
+  scheduler.arm(await service.getSettings())
 
   app.on('window-all-closed', () => {}) // tray app: stay alive with no windows
   app.on('activate', () => win?.show())

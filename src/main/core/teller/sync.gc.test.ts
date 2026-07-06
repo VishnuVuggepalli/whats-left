@@ -48,7 +48,7 @@ describe('SyncEngine — presence-based pending GC', () => {
     const { engine, repo: r } = makeEngine({ pages, repo })
     const result = await engine.syncAccount(ACCOUNT)
     expect(result.gcPending).toBe(1)
-    expect(r.gcArgs).toEqual([[{ id: 'local_tip', replacementId: 'txn_posted_meal' }]])
+    expect(r.gcArgs).toEqual([[{ id: 'local_tip', replacementExternalId: 'txn_posted_meal' }]])
   })
 
   it('replacement boundaries: exactly ±5 days and ±20% qualify; one step past does not', async () => {
@@ -66,7 +66,7 @@ describe('SyncEngine — presence-based pending GC', () => {
       const { engine, repo: r } = makeEngine({ pages, repo })
       await engine.syncAccount(ACCOUNT)
       expect(r.gcArgs).toEqual([
-        [c.expectReplacement ? { id: 'local_b', replacementId: 'txn_candidate' } : { id: 'local_b' }],
+        [c.expectReplacement ? { id: 'local_b', replacementExternalId: 'txn_candidate' } : { id: 'local_b' }],
       ])
     }
   })
@@ -104,7 +104,7 @@ describe('SyncEngine — presence-based pending GC', () => {
     const { engine, repo: r } = makeEngine({ pages, repo })
     const result = await engine.syncAccount(ACCOUNT)
     expect(result.gcPending).toBe(2)
-    expect(r.gcArgs).toEqual([[{ id: 'local_1', replacementId: 'txn_single' }, { id: 'local_2' }]])
+    expect(r.gcArgs).toEqual([[{ id: 'local_1', replacementExternalId: 'txn_single' }, { id: 'local_2' }]])
   })
 
   it('non-teller pendings are ignored by GC', async () => {
@@ -129,13 +129,15 @@ describe('SyncEngine — presence-based pending GC', () => {
     expect(r.ops).toEqual(['apply', 'gc'])
   })
 
-  it('an empty (but successful) fetch tombstones absent pendings', async () => {
+  it('an EMPTY fetch window never drives GC — anomalous 200 must not tombstone pendings', async () => {
     const repo = new FakeRepo()
     repo.pending = [mkPending({ id: 'local_e', externalId: 'txn_gone_e', txnDate: '2026-07-04' })]
     const { engine, repo: r } = makeEngine({ pages: [[]], repo })
     const result = await engine.syncAccount(ACCOUNT)
-    expect(result).toEqual({ fetched: 0, inserted: 0, matched: 0, gcPending: 1, error: null })
-    expect(r.gcArgs).toEqual([[{ id: 'local_e' }]])
+    expect(result).toEqual({
+      fetched: 0, inserted: 0, matched: 0, gcPending: 0, warning: null, error: null,
+    })
+    expect(r.gcArgs).toHaveLength(0) // absence in an empty window proves nothing
     expect(r.applied).toHaveLength(0) // nothing to reconcile
   })
 })
@@ -152,7 +154,9 @@ describe('SyncEngine — error handling', () => {
       reconcile: fn,
     })
     const result = await engine.syncAccount(ACCOUNT)
-    expect(result).toEqual({ fetched: 0, inserted: 0, matched: 0, gcPending: 0, error: 'reconnect_required' })
+    expect(result).toEqual({
+      fetched: 0, inserted: 0, matched: 0, gcPending: 0, warning: null, error: 'reconnect_required',
+    })
     expect(repo.ops).toEqual([]) // partial window must never trigger GC or writes
   })
 

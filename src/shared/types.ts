@@ -108,6 +108,8 @@ export interface ImportReport {
   newCount: number
   matchedCount: number
   skippedDuplicates: number
+  /** committed rows the categorizer could not resolve (visible in Review) */
+  uncategorized: number
   warnings: string[]
   committed: boolean
 }
@@ -120,6 +122,10 @@ export interface SyncReport {
     inserted: number
     matched: number
     gcPending: number
+    /** fetched rows left without a category after the resolver + LLM tiers */
+    uncategorized: number
+    /** non-fatal anomaly (e.g. rows swallowed by a cross-account id collision) */
+    warning: string | null
     error: string | null
   }>
 }

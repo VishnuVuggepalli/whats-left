@@ -58,7 +58,9 @@ describe('SyncEngine — fixture sync', () => {
   it('fresh sync inserts every fixture txn', async () => {
     const { engine, repo, client, reconcileCalls } = makeEngine({ pages: [fixtureTxns] })
     const result = await engine.syncAccount(ACCOUNT)
-    expect(result).toEqual({ fetched: 6, inserted: 6, matched: 0, gcPending: 0, error: null })
+    expect(result).toEqual({
+      fetched: 6, inserted: 6, matched: 0, gcPending: 0, warning: null, error: null,
+    })
     expect(client.calls).toHaveLength(1)
     expect(client.calls[0]?.accountId).toBe('acc_chase_cc_1')
     expect(reconcileCalls[0]?.incoming.map((d) => d.externalId)).toContain('txn_cc_united')
@@ -70,6 +72,16 @@ describe('SyncEngine — fixture sync', () => {
     const { engine, repo } = makeEngine({ pages: [fixtureTxns] })
     await engine.syncAccount(ACCOUNT)
     expect(repo.listExistingArgs).toEqual([{ accountId: ACCOUNT.id, fromDate: '2026-06-14' }])
+  })
+
+  it('reports DB-actual counts + warning when INSERT OR IGNORE swallows inserts', async () => {
+    const repo = new FakeRepo()
+    repo.swallowInserts = 2 // cross-account external-id collision
+    const { engine } = makeEngine({ pages: [fixtureTxns], repo })
+    const result = await engine.syncAccount(ACCOUNT)
+    expect(result.fetched).toBe(6)
+    expect(result.inserted).toBe(4) // what the DB actually wrote, not the reconciler's 6
+    expect(result.warning).toMatch(/2 transaction\(s\) were not inserted/)
   })
 
   it('re-sync of fully known data yields matches, not inserts', async () => {

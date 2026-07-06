@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import type { ExistingTxn, ReconcileOutcome, TxnRepoPort } from '../ports'
+import type { ApplyCounts, ExistingTxn, ReconcileOutcome, TxnRepoPort } from '../ports'
 import type { IsoDate, TxnDraft } from '../../../shared/types'
 import { FixedClock } from '../../platform/fakes'
 import type { TellerTransaction } from './types'
@@ -52,8 +52,10 @@ export class FakeRepo implements TxnRepoPort {
   known = new Set<string>()
   readonly ops: string[] = []
   readonly applied: ReconcileOutcome[] = []
-  readonly gcArgs: Array<Array<{ id: string; replacementId?: string }>> = []
+  readonly gcArgs: Array<Array<{ id: string; replacementExternalId?: string }>> = []
   readonly listExistingArgs: Array<{ accountId: string; fromDate: IsoDate | null }> = []
+  /** simulate INSERT OR IGNORE swallowing inserts (cross-account id collision) */
+  swallowInserts = 0
 
   listExisting(accountId: string, fromDate: IsoDate | null): ExistingTxn[] {
     this.listExistingArgs.push({ accountId, fromDate })
@@ -62,11 +64,17 @@ export class FakeRepo implements TxnRepoPort {
   listPending(_accountId: string): ExistingTxn[] {
     return [...this.pending]
   }
-  applyDecisions(_accountId: string, outcome: ReconcileOutcome): void {
+  applyDecisions(_accountId: string, outcome: ReconcileOutcome): ApplyCounts {
     this.ops.push('apply')
     this.applied.push(outcome)
+    const swallowed = Math.min(this.swallowInserts, outcome.inserted)
+    return {
+      inserted: outcome.inserted - swallowed,
+      matched: outcome.matched,
+      skipped: outcome.skipped + swallowed,
+    }
   }
-  gcPending(ids: Array<{ id: string; replacementId?: string }>): void {
+  gcPending(ids: Array<{ id: string; replacementExternalId?: string }>): void {
     this.ops.push('gc')
     this.gcArgs.push(ids)
   }

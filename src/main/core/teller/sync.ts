@@ -38,6 +38,8 @@ export interface SyncAccountResult {
   inserted: number
   matched: number
   gcPending: number
+  /** non-fatal anomaly, e.g. inserts swallowed by a cross-account id collision */
+  warning: string | null
   /** 'reconnect_required' when the enrollment is inactive; null on success */
   error: string | null
 }
@@ -95,7 +97,14 @@ export class SyncEngine {
         // Surfaced as a result marker so callers flag the account for
         // reconnect instead of crashing the whole sync run. No repo writes
         // happened for this account (a partial window must never drive GC).
-        return { fetched: 0, inserted: 0, matched: 0, gcPending: 0, error: 'reconnect_required' }
+        return {
+          fetched: 0,
+          inserted: 0,
+          matched: 0,
+          gcPending: 0,
+          warning: null,
+          error: 'reconnect_required',
+        }
       }
       throw err
     }
@@ -106,7 +115,10 @@ export class SyncEngine {
     const pageSize = this.deps.pageSize ?? DEFAULT_PAGE_SIZE
     const stopAfterKnown = this.deps.stopAfterKnown ?? DEFAULT_STOP_AFTER_KNOWN
 
-    const knownIds = repo.knownExternalIds(account.id, 'teller')
+    // ALL known external ids on the account — including teller ids adopted by
+    // csv rows during fuzzy merges — so cursor termination and GC replacement
+    // filtering see the merged overlap as known.
+    const knownIds = repo.knownExternalIds(account.id)
     const tellerPendings = repo
       .listPending(account.id)
       .filter((p) => p.source === 'teller' && p.externalId !== null)
@@ -126,21 +138,42 @@ export class SyncEngine {
 
     let inserted = 0
     let matched = 0
+    let warning: string | null = null
     if (fetched.length > 0) {
       const drafts = fetched.map(mapTellerTxn)
       const existing = repo.listExisting(account.id, oldestFetchedDate)
       const outcome = reconcile(drafts, existing)
-      repo.applyDecisions(account.id, outcome)
-      inserted = outcome.inserted
-      matched = outcome.matched
+      // Report what the DB ACTUALLY persisted, not the reconciler's plan —
+      // INSERT OR IGNORE can swallow a cross-account external-id collision.
+      const counts = repo.applyDecisions(account.id, outcome)
+      inserted = counts.inserted
+      matched = counts.matched
+      if (counts.inserted < outcome.inserted) {
+        warning =
+          `${outcome.inserted - counts.inserted} transaction(s) were not inserted — ` +
+          'their external ids already exist on another account'
+      }
     }
 
     // GC runs after applyDecisions so a freshly inserted replacement row
-    // already exists when the repo carries user edits onto it.
-    const gcList = identifyPendingGc(tellerPendings, fetched, fetchedIds, knownIds)
+    // already exists when the repo carries user edits onto it. An EMPTY fetch
+    // window proves nothing: an anomalous empty 200 must never tombstone the
+    // account's pendings (they could not be resurrected — ux_txn_external
+    // keeps their ids and re-inserts are silently ignored).
+    const gcList =
+      fetched.length > 0
+        ? identifyPendingGc(tellerPendings, fetched, fetchedIds, knownIds)
+        : []
     if (gcList.length > 0) repo.gcPending(gcList)
 
-    return { fetched: fetched.length, inserted, matched, gcPending: gcList.length, error: null }
+    return {
+      fetched: fetched.length,
+      inserted,
+      matched,
+      gcPending: gcList.length,
+      warning,
+      error: null,
+    }
   }
 }
 
@@ -207,16 +240,18 @@ function identifyPendingGc(
   fetched: readonly TellerTransaction[],
   fetchedIds: ReadonlySet<string>,
   knownIds: ReadonlySet<string>,
-): Array<{ id: string; replacementId?: string }> {
+): Array<{ id: string; replacementExternalId?: string }> {
   const candidates = fetched.filter((t) => t.status === 'posted' && !knownIds.has(t.id))
   const claimed = new Set<string>()
-  const gcList: Array<{ id: string; replacementId?: string }> = []
+  const gcList: Array<{ id: string; replacementExternalId?: string }> = []
   for (const pending of pendings) {
     if (pending.externalId !== null && fetchedIds.has(pending.externalId)) continue
     const replacement = findReplacement(pending, candidates, claimed)
     if (replacement !== null) {
       claimed.add(replacement.id)
-      gcList.push({ id: pending.id, replacementId: replacement.id })
+      // the replacement is identified by its TELLER id — the repo resolves it
+      // to a local row (local UUIDs never cross this boundary)
+      gcList.push({ id: pending.id, replacementExternalId: replacement.id })
     } else {
       gcList.push({ id: pending.id })
     }

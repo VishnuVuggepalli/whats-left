@@ -193,6 +193,12 @@ function ReportView({ report }: { report: ImportReport }) {
         {report.parsed} parsed → <strong>{report.newCount} new</strong>, {report.matchedCount} matched,{' '}
         {report.skippedDuplicates} duplicates skipped → into <strong>{report.accountName}</strong>
       </p>
+      {report.uncategorized > 0 && (
+        <p className="mt-1 text-warn">
+          {report.uncategorized} transaction{report.uncategorized === 1 ? '' : 's'} could not be
+          categorized — find {report.uncategorized === 1 ? 'it' : 'them'} in the Review screen.
+        </p>
+      )}
       {report.warnings.length > 0 && (
         <ul className="mt-2 list-inside list-disc text-warn">
           {report.warnings.map((w) => (

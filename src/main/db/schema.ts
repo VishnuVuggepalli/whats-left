@@ -4,6 +4,8 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-or
  * Drizzle schema — mirrors src/main/db/migrations/0000_init.sql (hand-written
  * migration is the source of truth; keep both in sync).
  * Amounts: signed integer cents (negative = out). Dates: 'YYYY-MM-DD' TEXT.
+ * Analytics views (raw SQL only): NULL-category posted rows count as spend
+ * everywhere (COALESCE in v_monthly_totals / v_merchant_monthly).
  */
 
 export const accounts = sqliteTable('accounts', {

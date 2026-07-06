@@ -92,7 +92,7 @@ export function mapExisting(row: TxnRow): ExistingTxn {
     postDate: row.post_date,
     amountCents: row.amount_cents,
     status: row.status,
-    // normalizedPayee = imported_payee for now (normalizer identity in v1 repo reads)
+    // raw payee; consumers needing the cache key must run normalizePayee() on it
     normalizedPayee: row.imported_payee,
     categorySource: row.category_source,
   }

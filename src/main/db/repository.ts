@@ -10,9 +10,11 @@ import type {
   ReviewItem,
   Source,
   TransactionDto,
+  TxnDraft,
   TxnQuery,
 } from '../../shared/types'
 import type {
+  ApplyCounts,
   ExistingTxn,
   MerchantCachePort,
   ReconcileOutcome,
@@ -25,16 +27,25 @@ import type { Db } from './db'
 import {
   cacheGet,
   cacheSet,
+  listMerchantCandidates,
   listReviewQueue,
   listTransactions,
   listUncategorized,
   recategorize,
   setTxnCategory,
+  type MerchantCandidate,
   type UncategorizedTxn,
 } from './queries'
 import { mapCategory, mapExisting, mapTransaction, type CategoryRow, type TxnRow } from './rows'
 
 export type { CreateAccountInput } from './accounts'
+export type { ApplyCounts } from '../core/ports'
+
+/** reconcile step injected into linkCsvHistory (kept out of the db layer) */
+export type LinkReconcileFn = (
+  incoming: TxnDraft[],
+  existing: ExistingTxn[],
+) => ReconcileOutcome
 
 export interface SyncLogEntry {
   ranAt: string
@@ -45,12 +56,6 @@ export interface SyncLogEntry {
   matched: number
   gcPending: number
   errors: string | null
-}
-
-export interface ApplyCounts {
-  inserted: number
-  matched: number
-  skipped: number
 }
 
 /**
@@ -78,9 +83,71 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
     accountOps.updateAccountStatus(this.db, id, status)
   }
 
-  /** move csv_only history onto a Teller account; returns moved-row count */
-  linkCsvHistory(csvAccountId: string, tellerAccountId: string): number {
-    return accountOps.linkCsvHistory(this.db, csvAccountId, tellerAccountId)
+  /** successful sync: status back to 'ok' AND last_sync_at stamped */
+  markSynced(id: string, lastSyncAt: string): void {
+    accountOps.markSynced(this.db, id, lastSyncAt)
+  }
+
+  /**
+   * Move csv_only history onto a Teller account AND reconcile the merged
+   * account (plan §5b): moved csv rows are re-presented as drafts against the
+   * account's teller-source rows; each match applies the reconciler-approved
+   * updates to the teller row, carries user edits (notes always, category only
+   * when category_source='user') from the csv twin, and tombstones the twin.
+   * All inside one transaction.
+   */
+  linkCsvHistory(
+    csvAccountId: string,
+    tellerAccountId: string,
+    reconcileFn: LinkReconcileFn,
+  ): { moved: number; matched: number } {
+    const run = this.db.transaction((): { moved: number; matched: number } => {
+      const movedIds = (
+        this.db
+          .prepare('SELECT id FROM transactions WHERE account_id = ? AND tombstone = 0')
+          .all(csvAccountId) as Array<{ id: string }>
+      ).map((r) => r.id)
+      const moved = accountOps.linkCsvHistory(this.db, csvAccountId, tellerAccountId)
+
+      const accountRows = this.db
+        .prepare('SELECT * FROM transactions WHERE account_id = ? AND tombstone = 0')
+        .all(tellerAccountId) as TxnRow[]
+      const movedIdSet = new Set(movedIds)
+      const csvRows = accountRows.filter((r) => movedIdSet.has(r.id) && r.source !== 'teller')
+      const tellerRows = accountRows.filter((r) => r.source === 'teller' && !movedIdSet.has(r.id))
+      if (csvRows.length === 0 || tellerRows.length === 0) return { moved, matched: 0 }
+
+      const outcome = reconcileFn(csvRows.map(rowToDraft), tellerRows.map(mapExisting))
+      let matched = 0
+      outcome.decisions.forEach((decision, i) => {
+        if (decision.kind !== 'match') return // unmatched csv rows already live as moved rows
+        const twin = csvRows[i]
+        if (twin === undefined) {
+          throw new Error(`linkCsvHistory: decision index ${i} has no source row`)
+        }
+        this.applyMatch(decision.existingId, decision.updates)
+        this.carryUserEdits(twin, decision.existingId)
+        this.db.prepare('UPDATE transactions SET tombstone = 1 WHERE id = ?').run(twin.id)
+        matched += 1
+      })
+      return { moved, matched }
+    })
+    return run()
+  }
+
+  /** carry user edits from a redundant twin onto its surviving row (plan §5a semantics) */
+  private carryUserEdits(twin: TxnRow, targetId: string): void {
+    if (twin.notes !== null) {
+      this.db.prepare('UPDATE transactions SET notes = ? WHERE id = ?').run(twin.notes, targetId)
+    }
+    if (twin.category_source === 'user' && twin.category_id !== null) {
+      this.db
+        .prepare(
+          `UPDATE transactions SET category_id = ?, category_source = 'user', llm_confidence = NULL
+           WHERE id = ?`,
+        )
+        .run(twin.category_id, targetId)
+    }
   }
 
   // ---- TxnRepoPort -------------------------------------------------------
@@ -108,13 +175,18 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
     return rows.map(mapExisting)
   }
 
-  knownExternalIds(accountId: string, source: Source): Set<string> {
+  /**
+   * Every non-NULL external id on the account regardless of row source: a csv
+   * row that adopted a teller id via a fuzzy merge still counts as known
+   * (external ids are namespace-unique via ux_txn_external).
+   */
+  knownExternalIds(accountId: string): Set<string> {
     const rows = this.db
       .prepare(
         `SELECT external_id FROM transactions
-         WHERE account_id = ? AND source = ? AND external_id IS NOT NULL`,
+         WHERE account_id = ? AND external_id IS NOT NULL`,
       )
-      .all(accountId, source) as Array<{ external_id: string }>
+      .all(accountId) as Array<{ external_id: string }>
     return new Set(rows.map((r) => r.external_id))
   }
 
@@ -207,12 +279,18 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
 
   /**
    * Tombstone stale pendings (presence-based GC, plan §5a). When a replacement
-   * row is known, carry user edits over: notes always; the category pair only
-   * when the user set it (category_source='user').
+   * is known, carry user edits over: notes always; the category pair only when
+   * the user set it (category_source='user'). The replacement is identified by
+   * its BANK-ISSUED Teller id (SyncEngine only sees Teller ids — local row
+   * UUIDs never cross that boundary) and resolved within the pending's account.
    */
-  gcPending(ids: Array<{ id: string; replacementId?: string }>): void {
+  gcPending(ids: Array<{ id: string; replacementExternalId?: string }>): void {
     const read = this.db.prepare(
-      'SELECT notes, category_id, category_source FROM transactions WHERE id = ?',
+      'SELECT account_id, notes, category_id, category_source FROM transactions WHERE id = ?',
+    )
+    const resolveReplacement = this.db.prepare(
+      `SELECT id FROM transactions
+       WHERE account_id = ? AND source = 'teller' AND external_id = ? AND tombstone = 0`,
     )
     const tomb = this.db.prepare('UPDATE transactions SET tombstone = 1 WHERE id = ?')
     const copyNotes = this.db.prepare('UPDATE transactions SET notes = ? WHERE id = ?')
@@ -221,24 +299,26 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
        WHERE id = ?`,
     )
     const run = this.db.transaction(() => {
-      for (const { id, replacementId } of ids) {
+      for (const { id, replacementExternalId } of ids) {
         const old = read.get(id) as
-          | { notes: string | null; category_id: string | null; category_source: CategorySource | null }
+          | {
+              account_id: string
+              notes: string | null
+              category_id: string | null
+              category_source: CategorySource | null
+            }
           | undefined
         if (!old) throw new Error(`gcPending: unknown transaction ${id}`)
-        if (replacementId !== undefined) {
-          if (old.notes !== null) {
-            const info = copyNotes.run(old.notes, replacementId)
-            if (info.changes === 0) {
-              throw new Error(`gcPending: unknown replacement ${replacementId}`)
-            }
+        const carryCategory = old.category_source === 'user' && old.category_id !== null
+        if (replacementExternalId !== undefined && (old.notes !== null || carryCategory)) {
+          const target = resolveReplacement.get(old.account_id, replacementExternalId) as
+            | { id: string }
+            | undefined
+          if (target === undefined) {
+            throw new Error(`gcPending: unknown replacement ${replacementExternalId}`)
           }
-          if (old.category_source === 'user' && old.category_id !== null) {
-            const info = copyCategory.run(old.category_id, replacementId)
-            if (info.changes === 0) {
-              throw new Error(`gcPending: unknown replacement ${replacementId}`)
-            }
-          }
+          if (old.notes !== null) copyNotes.run(old.notes, target.id)
+          if (carryCategory) copyCategory.run(old.category_id, target.id)
         }
         tomb.run(id)
       }
@@ -296,8 +376,22 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
     return listReviewQueue(this.db)
   }
 
-  recategorize(input: RecategorizeInput, normalizedMerchant: string): { updated: number } {
-    return recategorize(this.db, input, normalizedMerchant)
+  /**
+   * Candidate rows for a merchant-scope "apply to existing" — every live row
+   * whose category was NOT set by the user. The caller matches candidates
+   * against the merchant with the SAME normalizer that keys the merchant
+   * cache, then passes the ids back into recategorize.
+   */
+  listMerchantCandidates(excludeTxnId: string): MerchantCandidate[] {
+    return listMerchantCandidates(this.db, excludeTxnId)
+  }
+
+  recategorize(
+    input: RecategorizeInput,
+    normalizedMerchant: string,
+    applyToTxnIds: readonly string[] = [],
+  ): { updated: number } {
+    return recategorize(this.db, input, normalizedMerchant, applyToTxnIds)
   }
 
   // ---- MerchantCachePort --------------------------------------------------
@@ -335,12 +429,25 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
 
   // ---- settings & sync log -------------------------------------------------
 
+  /**
+   * Corrupt JSON (disk corruption, manual sqlite edit) degrades to null so
+   * callers fall back to defaults and the next setSetting self-heals the row —
+   * a single bad row must never brick every settings/sync surface.
+   */
   getSetting<T>(key: string): T | null {
     const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
       | { value: string }
       | undefined
     if (!row) return null
-    return JSON.parse(row.value) as T
+    try {
+      return JSON.parse(row.value) as T
+    } catch (err: unknown) {
+      console.error(
+        `[whats-left] settings row ${JSON.stringify(key)} holds corrupt JSON ` +
+          `(${err instanceof Error ? err.message : String(err)}) — falling back to defaults`,
+      )
+      return null
+    }
   }
 
   setSetting(key: string, value: unknown): void {
@@ -374,5 +481,23 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
         entry.errors,
       )
     return id
+  }
+}
+
+/** re-present a persisted row as a draft for the linkCsvHistory reconcile pass */
+function rowToDraft(row: TxnRow): TxnDraft {
+  return {
+    source: row.source,
+    externalId: row.external_id,
+    importHash: row.import_hash,
+    txnDate: row.txn_date,
+    postDate: row.post_date,
+    amountCents: row.amount_cents,
+    status: row.status,
+    rawDescription: row.raw_description,
+    importedPayee: row.imported_payee,
+    sourceCategory: row.source_category,
+    counterparty: null,
+    typeCode: null,
   }
 }

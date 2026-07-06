@@ -16,12 +16,17 @@ import { parseCsv } from '../core/csv'
 import { DEFAULT_BASE_URL, DEFAULT_MODEL } from '../core/ollama/client'
 import type { Clock, SecretStore } from '../core/ports'
 import { reconcile } from '../core/reconcile/reconciler'
-import { mapTellerTxn, SyncEngine } from '../core/teller/sync'
+import { mapTellerTxn, SyncEngine, type SyncAccountResult } from '../core/teller/sync'
 import type { TellerTransaction } from '../core/teller/types'
 import type { SqliteRepo } from '../db/repository'
 import type { DialogApi } from '../platform/api'
 import type { EnrollmentServerHandle, EnrollmentServerOpts } from '../platform/enrollmentServer'
-import { categorizeRows, type CategorizableRow, type LlmPort } from './categorization'
+import {
+  categorizeRows,
+  type CategorizableRow,
+  type CategorizeResult,
+  type LlmPort,
+} from './categorization'
 import { accessTokenKey, runEnrollment, type TellerClientPort } from './enrollmentFlow'
 
 export { accessTokenKey, type TellerClientPort } from './enrollmentFlow'
@@ -56,6 +61,8 @@ export interface AppServiceDeps {
   /** open the enrollment URL in the system browser (electron shell in prod) */
   openExternal: (url: string) => Promise<void>
   getApplicationId: () => Promise<string>
+  /** fired after every persisted settings change (index.ts re-arms the scheduler) */
+  onSettingsChanged?: (settings: SettingsDto) => void
 }
 
 export class AppService implements Api {
@@ -86,10 +93,13 @@ export class AppService implements Api {
     csvAccountId: string,
     tellerAccountId: string,
   ): Promise<{ moved: number; matched: number }> {
-    const moved = this.deps.repo.linkCsvHistory(csvAccountId, tellerAccountId)
-    // Cross-source matching happens when the next Teller window is reconciled
-    // against the merged ledger (plan §5b/§5c) — nothing to fuzzy-match yet.
-    return { moved, matched: 0 }
+    // Plan §5b: rewrite account_id, then run the reconciler over the merged
+    // account NOW. Deferring to the next sync cannot work — pass 0 would
+    // consume each incoming teller draft as a duplicate of its own teller row
+    // before the fuzzy passes could pair it with the moved csv twin.
+    return this.deps.repo.linkCsvHistory(csvAccountId, tellerAccountId, (incoming, existing) =>
+      reconcile([...incoming], [...existing], { normalize: normalizePayee }),
+    )
   }
 
   // ---- csv import ---------------------------------------------------------
@@ -109,19 +119,33 @@ export class AppService implements Api {
     const existing = repo.listExisting(input.accountId, null)
     const outcome = reconcile(drafts, existing, { normalize: normalizePayee })
 
+    // dry run: report the reconciler's plan; commit: report what the DB wrote
+    let counts = { inserted: outcome.inserted, matched: outcome.matched, skipped: outcome.skipped }
+    let uncategorized = 0
+    const reportWarnings = [...warnings]
     if (input.commit) {
-      repo.applyDecisions(input.accountId, outcome)
-      await this.categorizeDrafts(account, drafts)
+      counts = repo.applyDecisions(input.accountId, outcome)
+      if (counts.inserted < outcome.inserted) {
+        // INSERT OR IGNORE swallowed rows: their external ids already exist on
+        // another account (ux_txn_external is global) — the user must know.
+        reportWarnings.push(
+          `${outcome.inserted - counts.inserted} row(s) were not imported — ` +
+            'their bank reference ids already exist on another account',
+        )
+      }
+      const catResult = await this.categorizeDrafts(account, drafts)
+      uncategorized = catResult?.leftUncategorized ?? 0
     }
     return {
       accountId: account.id,
       accountName: account.name,
       format,
       parsed: drafts.length,
-      newCount: outcome.inserted,
-      matchedCount: outcome.matched,
-      skippedDuplicates: outcome.skipped,
-      warnings,
+      newCount: counts.inserted,
+      matchedCount: counts.matched,
+      skippedDuplicates: counts.skipped,
+      uncategorized,
+      warnings: reportWarnings,
       committed: input.commit,
     }
   }
@@ -133,7 +157,18 @@ export class AppService implements Api {
   }
 
   async recategorize(input: RecategorizeInput): Promise<{ updated: number }> {
-    return this.deps.repo.recategorize(input, this.merchantForTxn(input.txnId))
+    const merchant = this.merchantForTxn(input.txnId)
+    // "Apply to existing" must match rows through the SAME normalizer that
+    // keys the merchant cache — raw imported_payee equality misses variants
+    // like 'SQ *BLUE BOTTLE' vs 'BLUE BOTTLE' that share one cache row.
+    const applyToTxnIds =
+      input.scope === 'merchant' && input.applyToExisting === true
+        ? this.deps.repo
+            .listMerchantCandidates(input.txnId)
+            .filter((c) => normalizePayee(c.importedPayee) === merchant)
+            .map((c) => c.id)
+        : []
+    return this.deps.repo.recategorize(input, merchant, applyToTxnIds)
   }
 
   // ---- analytics ----------------------------------------------------------
@@ -183,6 +218,9 @@ export class AppService implements Api {
   ): Promise<SyncReport['accounts'][number]> {
     const { repo, clock, secrets } = this.deps
     let entry: SyncReport['accounts'][number]
+    // survives into the catch so an error AFTER the engine ran (e.g. a
+    // categorization throw) still reports the real fetched/inserted counts
+    let engineResult: SyncAccountResult | null = null
     try {
       const tellerAccountId = account.tellerAccountId
       if (tellerAccountId === null || account.tellerEnrollmentId === null) {
@@ -208,20 +246,33 @@ export class AppService implements Api {
           reconcile([...incoming], [...existing], { normalize: normalizePayee }),
       })
       const result = await engine.syncAccount({ id: account.id, tellerAccountId })
+      engineResult = result
+      let uncategorized = 0
       if (result.error === 'reconnect_required') {
         repo.updateAccountStatus(account.id, 'reconnect_required')
       } else {
-        repo.updateAccountStatus(account.id, 'ok')
-        await this.categorizeDrafts(account, dedupeById(fetchedLog).map(mapTellerTxn), settings)
+        const catResult = await this.categorizeDrafts(
+          account,
+          dedupeById(fetchedLog).map(mapTellerTxn),
+          settings,
+        )
+        uncategorized = catResult?.leftUncategorized ?? 0
+        // only a FULLY successful run (categorization included) is 'ok'
+        repo.markSynced(account.id, ranAt)
       }
-      entry = { accountId: account.id, ...result }
+      entry = { accountId: account.id, ...result, uncategorized }
     } catch (err) {
+      // a silently-green badge over a failing sync hides staleness for months
+      // — flag the account so the Accounts screen shows the danger state
+      this.flagAccountError(account.id)
       entry = {
         accountId: account.id,
-        fetched: 0,
-        inserted: 0,
-        matched: 0,
-        gcPending: 0,
+        fetched: engineResult?.fetched ?? 0,
+        inserted: engineResult?.inserted ?? 0,
+        matched: engineResult?.matched ?? 0,
+        gcPending: engineResult?.gcPending ?? 0,
+        uncategorized: 0,
+        warning: engineResult?.warning ?? null,
         error: err instanceof Error ? err.message : String(err),
       }
     }
@@ -236,6 +287,15 @@ export class AppService implements Api {
       errors: entry.error,
     })
     return entry
+  }
+
+  /** best-effort: never let status bookkeeping mask the original sync error */
+  private flagAccountError(accountId: string): void {
+    try {
+      this.deps.repo.updateAccountStatus(accountId, 'error')
+    } catch (statusErr) {
+      console.error(`[whats-left] could not flag account ${accountId} as error:`, statusErr)
+    }
   }
 
   // ---- enrollment ---------------------------------------------------------
@@ -291,6 +351,9 @@ export class AppService implements Api {
     validateSettingsPatch(patch)
     const next = { ...(await this.getSettings()), ...patch }
     this.deps.repo.setSetting(SETTINGS_KEY, next)
+    // let the host re-arm anything derived from settings (sync scheduler) —
+    // a persisted-but-dormant syncIntervalHours would lie to the user
+    this.deps.onSettingsChanged?.(next)
     return next
   }
 
@@ -321,7 +384,7 @@ export class AppService implements Api {
     account: AccountDto,
     drafts: readonly TxnDraft[],
     settings?: SettingsDto,
-  ): Promise<void> {
+  ): Promise<CategorizeResult | null> {
     const { repo } = this.deps
     const rows: CategorizableRow[] = []
     for (const draft of drafts) {
@@ -330,9 +393,9 @@ export class AppService implements Api {
         rows.push({ txnId: hit.id, draft, accountType: account.type })
       }
     }
-    if (rows.length === 0) return
+    if (rows.length === 0) return null
     const llm = this.deps.makeLlm(settings ?? (await this.getSettings()))
-    await categorizeRows(rows, { cache: repo, llm })
+    return categorizeRows(rows, { cache: repo, llm })
   }
 
   private merchantForTxn(txnId: string): string {

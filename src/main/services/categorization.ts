@@ -18,7 +18,7 @@ export interface LlmPort {
   categorizeMerchants(
     merchants: string[],
     fewShot: Array<{ merchant: string; category: string }>,
-  ): Promise<Array<{ merchant: string; category: string; confidence: number }>>
+  ): Promise<Array<{ merchant: string; category: string; confidence: number; warning?: string }>>
 }
 
 /** one freshly inserted, still-uncategorized row + the draft it came from */
@@ -36,6 +36,8 @@ export interface CategorizeSink extends MerchantCachePort {
 export interface CategorizeResult {
   resolved: number
   llmCategorized: number
+  /** degraded Ollama fallback entries (warning / uncategorized+0) — retried later */
+  llmDegraded: number
   leftUncategorized: number
 }
 
@@ -67,36 +69,59 @@ export async function categorizeRows(
   }
 
   if (pendingLlm.size === 0) {
-    return { resolved, llmCategorized: 0, leftUncategorized: unresolvableMerchant }
+    return { resolved, llmCategorized: 0, llmDegraded: 0, leftUncategorized: unresolvableMerchant }
   }
 
-  const llmCategorized = await runLlmTier(pendingLlm, cache, llm)
+  const { categorized, degraded } = await runLlmTier(pendingLlm, cache, llm)
   const queued = [...pendingLlm.values()].reduce((n, ids) => n + ids.length, 0)
   return {
     resolved,
-    llmCategorized,
-    leftUncategorized: unresolvableMerchant + (queued - llmCategorized),
+    llmCategorized: categorized,
+    llmDegraded: degraded,
+    leftUncategorized: unresolvableMerchant + (queued - categorized),
   }
+}
+
+/** degraded OllamaClient fallback entry — a content failure, never a real answer */
+function isDegradedLlmResult(result: {
+  category: string
+  confidence: number
+  warning?: string
+}): boolean {
+  return result.warning !== undefined || (result.category === 'uncategorized' && result.confidence === 0)
 }
 
 /**
  * Tier 4: batch the deduplicated merchants to Ollama. Transport failure is a
  * degraded mode, not a crash — rows stay uncategorized for Review. Content
- * errors were already degraded by OllamaClient to 'uncategorized' entries
- * with confidence 0, which land in the review queue via low confidence.
+ * errors are degraded by OllamaClient to 'uncategorized' entries with
+ * confidence 0 and a warning: those MUST NOT be written into the merchant
+ * cache or counted as categorized — a transient glitch would otherwise become
+ * a permanent 'uncategorized' cache hit with no retry path. Their rows stay
+ * category_id NULL so the next import/sync re-attempts them.
  */
 async function runLlmTier(
   pendingLlm: ReadonlyMap<string, readonly string[]>,
   cache: CategorizeSink,
   llm: LlmPort | null,
-): Promise<number> {
-  if (llm === null) return 0
+): Promise<{ categorized: number; degraded: number }> {
+  if (llm === null) return { categorized: 0, degraded: 0 }
   try {
-    if (!(await llm.isAvailable())) return 0
+    if (!(await llm.isAvailable())) return { categorized: 0, degraded: 0 }
     const merchants = [...pendingLlm.keys()]
     const results = await llm.categorizeMerchants(merchants, [])
-    applyLlmResults(results, { cache })
+    const usable = results.filter((r) => !isDegradedLlmResult(r))
+    const degradedResults = results.filter((r) => isDegradedLlmResult(r))
+    if (degradedResults.length > 0) {
+      console.warn(
+        `[whats-left] categorization: ${degradedResults.length} merchant(s) came back ` +
+          `degraded from Ollama and were left uncategorized for retry ` +
+          `(first: ${JSON.stringify(degradedResults[0]?.warning ?? 'uncategorized@0')})`,
+      )
+    }
+    applyLlmResults(usable, { cache })
     let categorized = 0
+    let degraded = 0
     for (const result of results) {
       const txnIds = pendingLlm.get(result.merchant)
       if (txnIds === undefined) {
@@ -104,14 +129,18 @@ async function runLlmTier(
           `categorizeRows: LLM returned unrequested merchant ${JSON.stringify(result.merchant)}`,
         )
       }
+      if (isDegradedLlmResult(result)) {
+        degraded += txnIds.length // rows stay NULL — surfaced in Review, retried next batch
+        continue
+      }
       for (const txnId of txnIds) {
         cache.setTxnCategory(txnId, result.category, 'llm', result.confidence)
         categorized += 1
       }
     }
-    return categorized
+    return { categorized, degraded }
   } catch (err) {
-    if (err instanceof OllamaUnavailableError) return 0
+    if (err instanceof OllamaUnavailableError) return { categorized: 0, degraded: 0 }
     throw err
   }
 }

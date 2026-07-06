@@ -210,6 +210,7 @@ export function createMockApi(): Api {
         newCount: newHashes.length,
         matchedCount: 0, // mock has no cross-source reconciler
         skippedDuplicates: skipped,
+        uncategorized: additions.filter((t) => t.categoryId === null).length,
         warnings: [],
         committed: input.commit,
       }
@@ -270,8 +271,8 @@ export function createMockApi(): Api {
         .filter((a) => a.sourceKind === 'teller')
         .map((a) =>
           a.status === 'reconnect_required'
-            ? { accountId: a.id, fetched: 0, inserted: 0, matched: 0, gcPending: 0, error: 'Enrollment inactive — reconnect required' }
-            : { accountId: a.id, fetched: 4, inserted: 0, matched: 0, gcPending: 0, error: null },
+            ? { accountId: a.id, fetched: 0, inserted: 0, matched: 0, gcPending: 0, uncategorized: 0, warning: null, error: 'Enrollment inactive — reconnect required' }
+            : { accountId: a.id, fetched: 4, inserted: 0, matched: 0, gcPending: 0, uncategorized: 0, warning: null, error: null },
         )
       state = {
         ...state,
