@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  institution TEXT NOT NULL CHECK (institution IN ('chase','amex')),
+  institution TEXT NOT NULL CHECK (institution IN ('chase','amex','other')),
   source_kind TEXT NOT NULL CHECK (source_kind IN ('teller','csv_only')),
   teller_account_id TEXT,
   teller_enrollment_id TEXT,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE TABLE IF NOT EXISTS transactions (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL REFERENCES accounts(id),
-  source TEXT NOT NULL CHECK (source IN ('teller','chase_csv','amex_csv')),
+  source TEXT NOT NULL CHECK (source IN ('plaid','teller','chase_csv','amex_csv')),
   external_id TEXT,
   import_hash TEXT NOT NULL,
   linked_source_id TEXT,

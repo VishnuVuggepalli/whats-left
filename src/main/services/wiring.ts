@@ -2,11 +2,13 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SettingsDto } from '../../shared/types'
 import { OllamaClient } from '../core/ollama/client'
+import { PlaidClient } from '../core/plaid/client'
+import { PlaidFetchTransport } from '../core/plaid/transport'
 import type { HttpTransport, SecretStore } from '../core/ports'
 import { TellerClient } from '../core/teller/client'
 import { MtlsTransport } from '../core/teller/transport'
 import type { LlmPort } from './categorization'
-import type { TellerClientPort } from './appService'
+import type { MakePlaidClient, TellerClientPort } from './appService'
 
 /**
  * Electron-free composition helpers used by src/main/index.ts. Everything here
@@ -84,6 +86,17 @@ export function createTellerClientFactory(
       : createFetchTransport()
   return (accessToken) =>
     new TellerClient({ transport, accessToken, ...(baseUrl !== undefined ? { baseUrl } : {}) })
+}
+
+/**
+ * Plaid client factory: plain JSON-over-HTTPS (no mTLS), auth in the body.
+ * One transport instance is shared across credential sets; the credentials
+ * come from settings/SecretStore per call and are never logged.
+ */
+export function createPlaidClientFactory(fetchImpl?: typeof fetch): MakePlaidClient {
+  const transport = new PlaidFetchTransport(fetchImpl !== undefined ? { fetchImpl } : {})
+  return (cfg) =>
+    new PlaidClient({ transport, clientId: cfg.clientId, secret: cfg.secret, env: cfg.env })
 }
 
 /** OllamaClient factory bound to the current settings */

@@ -113,8 +113,9 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
         .prepare('SELECT * FROM transactions WHERE account_id = ? AND tombstone = 0')
         .all(tellerAccountId) as TxnRow[]
       const movedIdSet = new Set(movedIds)
-      const csvRows = accountRows.filter((r) => movedIdSet.has(r.id) && r.source !== 'teller')
-      const tellerRows = accountRows.filter((r) => r.source === 'teller' && !movedIdSet.has(r.id))
+      const isFeedRow = (r: TxnRow): boolean => r.source === 'teller' || r.source === 'plaid'
+      const csvRows = accountRows.filter((r) => movedIdSet.has(r.id) && !isFeedRow(r))
+      const tellerRows = accountRows.filter((r) => isFeedRow(r) && !movedIdSet.has(r.id))
       if (csvRows.length === 0 || tellerRows.length === 0) return { moved, matched: 0 }
 
       const outcome = reconcileFn(csvRows.map(rowToDraft), tellerRows.map(mapExisting))
@@ -278,11 +279,12 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
   }
 
   /**
-   * Tombstone stale pendings (presence-based GC, plan §5a). When a replacement
-   * is known, carry user edits over: notes always; the category pair only when
-   * the user set it (category_source='user'). The replacement is identified by
-   * its BANK-ISSUED Teller id (SyncEngine only sees Teller ids — local row
-   * UUIDs never cross that boundary) and resolved within the pending's account.
+   * Tombstone stale pendings (Teller presence-based GC, plan §5a; Plaid
+   * pending_transaction_id replacement). When a replacement is known, carry
+   * user edits over: notes always; the category pair only when the user set
+   * it (category_source='user'). The replacement is identified by its
+   * BANK-ISSUED id (the sync engines only see bank ids — local row UUIDs
+   * never cross that boundary) and resolved within the pending's account.
    */
   gcPending(ids: Array<{ id: string; replacementExternalId?: string }>): void {
     const read = this.db.prepare(
@@ -290,7 +292,7 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
     )
     const resolveReplacement = this.db.prepare(
       `SELECT id FROM transactions
-       WHERE account_id = ? AND source = 'teller' AND external_id = ? AND tombstone = 0`,
+       WHERE account_id = ? AND source IN ('teller','plaid') AND external_id = ? AND tombstone = 0`,
     )
     const tomb = this.db.prepare('UPDATE transactions SET tombstone = 1 WHERE id = ?')
     const copyNotes = this.db.prepare('UPDATE transactions SET notes = ? WHERE id = ?')
@@ -324,6 +326,43 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
       }
     })
     run()
+  }
+
+  /**
+   * Plaid MODIFIED entries: the bank changed a transaction's state — update
+   * amount/dates/status by BANK id. NEVER touches category/payee/notes
+   * (plan §3 invariant 5: user categorization survives every sync write).
+   * Returns the number of rows updated (0 when the row is unknown, e.g. its
+   * insert was swallowed by a cross-account external-id collision).
+   */
+  updateTxnStateByExternalId(
+    accountId: string,
+    externalId: string,
+    state: { amountCents: number; txnDate: IsoDate; postDate: IsoDate | null; status: 'posted' | 'pending' },
+  ): number {
+    const info = this.db
+      .prepare(
+        `UPDATE transactions
+         SET amount_cents = ?, txn_date = ?, post_date = ?, status = ?
+         WHERE account_id = ? AND external_id = ? AND tombstone = 0`,
+      )
+      .run(state.amountCents, state.txnDate, state.postDate, state.status, accountId, externalId)
+    return info.changes
+  }
+
+  /**
+   * Plaid removed[] entries: tombstone by BANK id — never delete (raw history
+   * is kept forever). Idempotent: a row already tombstoned (e.g. a pending
+   * consumed by gcPending in the same sync) is a 0-change no-op.
+   */
+  tombstoneByExternalId(accountId: string, externalId: string): number {
+    const info = this.db
+      .prepare(
+        `UPDATE transactions SET tombstone = 1
+         WHERE account_id = ? AND external_id = ? AND tombstone = 0`,
+      )
+      .run(accountId, externalId)
+    return info.changes
   }
 
   /**

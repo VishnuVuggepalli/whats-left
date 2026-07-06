@@ -1,0 +1,43 @@
+{
+  "accounts": [
+    {
+      "account_id": "plaid-acc-chase-01",
+      "name": "Chase Total Checking",
+      "official_name": "CHASE TOTAL CHECKING",
+      "mask": "6789",
+      "type": "depository",
+      "subtype": "checking",
+      "verification_status": null,
+      "balances": {
+        "available": 2410.55,
+        "current": 2460.55,
+        "limit": null,
+        "iso_currency_code": "USD",
+        "unofficial_currency_code": null
+      }
+    },
+    {
+      "account_id": "plaid-acc-amex-01",
+      "name": "Amex Blue Cash",
+      "official_name": "BLUE CASH EVERYDAY",
+      "mask": "1005",
+      "type": "credit",
+      "subtype": "credit card",
+      "verification_status": null,
+      "balances": {
+        "available": null,
+        "current": 431.2,
+        "limit": 10000,
+        "iso_currency_code": "USD",
+        "unofficial_currency_code": null
+      }
+    }
+  ],
+  "item": {
+    "item_id": "plaid-item-01",
+    "institution_id": "ins_56",
+    "webhook": "",
+    "error": null
+  },
+  "request_id": "req-accounts-0001"
+}

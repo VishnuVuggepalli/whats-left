@@ -1,0 +1,9 @@
+{
+  "error_type": "ITEM_ERROR",
+  "error_code": "ITEM_LOGIN_REQUIRED",
+  "error_message": "the login details of this item have changed (credentials, MFA, or required user action) and a user login is required to update this information. use Link's update mode to restore the item to a good state",
+  "display_message": "The credentials for this bank need to be updated. Please reconnect the account.",
+  "request_id": "req-err-0001",
+  "documentation_url": "https://plaid.com/docs/errors/item/#item_login_required",
+  "suggested_action": null
+}

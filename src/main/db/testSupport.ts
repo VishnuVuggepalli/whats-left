@@ -48,7 +48,7 @@ export function insertAccount(db: Db, seed: AccountSeed = {}): string {
 
 export interface TxnSeed {
   id?: string
-  source?: 'teller' | 'chase_csv' | 'amex_csv'
+  source?: 'plaid' | 'teller' | 'chase_csv' | 'amex_csv'
   externalId?: string | null
   importHash?: string
   txnDate?: string

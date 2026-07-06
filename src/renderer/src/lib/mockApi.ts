@@ -14,6 +14,7 @@ import type {
   Institution,
   ReviewItem,
   SettingsDto,
+  SettingsPatch,
   TransactionDto,
   TxnQuery,
 } from '../../../shared/types'
@@ -331,7 +332,16 @@ export function createMockApi(): Api {
 
     async updateSettings(patch) {
       validateSettingsPatch(patch)
-      state = { ...state, settings: { ...state.settings, ...patch } }
+      // plaidSecret is write-only: never stored or echoed; only its presence shows
+      const { plaidSecret, ...rest } = patch
+      state = {
+        ...state,
+        settings: {
+          ...state.settings,
+          ...rest,
+          ...(plaidSecret !== undefined ? { plaidSecretSet: true } : {}),
+        },
+      }
       return structuredClone(state.settings)
     },
 
@@ -341,9 +351,18 @@ export function createMockApi(): Api {
   }
 }
 
-function validateSettingsPatch(patch: Partial<SettingsDto>): void {
+function validateSettingsPatch(patch: SettingsPatch): void {
+  if (patch.provider !== undefined && patch.provider !== 'plaid' && patch.provider !== 'teller') {
+    throw new Error(`Unknown provider: ${JSON.stringify(patch.provider)}`)
+  }
   if (patch.tellerEnv !== undefined && !TELLER_ENVS.includes(patch.tellerEnv)) {
     throw new Error(`Unknown Teller environment: ${JSON.stringify(patch.tellerEnv)}`)
+  }
+  if (patch.plaidEnv !== undefined && patch.plaidEnv !== 'sandbox' && patch.plaidEnv !== 'production') {
+    throw new Error(`Unknown Plaid environment: ${JSON.stringify(patch.plaidEnv)}`)
+  }
+  if (patch.plaidSecret !== undefined && patch.plaidSecret.trim() === '') {
+    throw new Error('Plaid secret cannot be empty')
   }
   if (patch.syncIntervalHours !== undefined) {
     const h = patch.syncIntervalHours

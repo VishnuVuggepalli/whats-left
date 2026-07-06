@@ -40,8 +40,14 @@ function makeWorld(): { service: AppService; repo: SqliteRepo; db: Db; secrets: 
       listAccounts: async () => [],
       listTransactions: async () => TELLER_TXNS,
     }),
+    makePlaidClient: () => {
+      throw new Error('plaid not exercised here')
+    },
     startEnrollmentServer: async () => {
       throw new Error('enrollment not exercised here')
+    },
+    startPlaidLinkServer: async () => {
+      throw new Error('plaid link not exercised here')
     },
     openExternal: async () => {},
     getApplicationId: async () => 'app_test',
@@ -52,6 +58,7 @@ function makeWorld(): { service: AppService; repo: SqliteRepo; db: Db; secrets: 
 describe('linkCsvHistory AFTER a Teller sync (integration)', () => {
   it('pairs teller rows with their moved csv twins: real matched count, no double-counting', async () => {
     const { service, repo, db, secrets } = makeWorld()
+    await service.updateSettings({ provider: 'teller' }) // this world syncs via Teller
 
     // 1) Teller enrolled first: sync inserts the 6 fixture rows
     const teller = repo.createAccount({

@@ -14,7 +14,7 @@ export interface CreateAccountInput {
   tellerEnrollmentId?: string | null
 }
 
-const INSTITUTIONS: readonly Institution[] = ['chase', 'amex']
+const INSTITUTIONS: readonly Institution[] = ['chase', 'amex', 'other']
 const ACCOUNT_TYPES: readonly AccountType[] = ['depository', 'credit']
 const ACCOUNT_STATUSES: readonly AccountStatus[] = ['ok', 'reconnect_required', 'error']
 

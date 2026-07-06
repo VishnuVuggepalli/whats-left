@@ -4,8 +4,10 @@ import type {
   EnrollmentResult,
   ImportReport,
   Institution,
+  PlaidEnv,
   RecategorizeInput,
   SettingsDto,
+  SettingsPatch,
   SyncReport,
   TellerEnv,
   TxnDraft,
@@ -21,6 +23,7 @@ import type { TellerTransaction } from '../core/teller/types'
 import type { SqliteRepo } from '../db/repository'
 import type { DialogApi } from '../platform/api'
 import type { EnrollmentServerHandle, EnrollmentServerOpts } from '../platform/enrollmentServer'
+import type { PlaidLinkServerHandle, PlaidLinkServerOpts } from '../platform/plaidLinkServer'
 import {
   categorizeRows,
   type CategorizableRow,
@@ -28,8 +31,22 @@ import {
   type LlmPort,
 } from './categorization'
 import { accessTokenKey, runEnrollment, type TellerClientPort } from './enrollmentFlow'
+import {
+  plaidSecretKey,
+  runPlaidEnrollment,
+  type MakePlaidClient,
+} from './plaidFlow'
+import { syncPlaidProvider } from './plaidSync'
 
 export { accessTokenKey, type TellerClientPort } from './enrollmentFlow'
+export {
+  plaidAccessTokenKey,
+  plaidCursorKey,
+  plaidSecretKey,
+  type MakePlaidClient,
+  type PlaidClientConfig,
+  type PlaidClientPort,
+} from './plaidFlow'
 
 /**
  * AppService — the composition root behind the IPC contract (plan §3).
@@ -41,13 +58,22 @@ export { accessTokenKey, type TellerClientPort } from './enrollmentFlow'
 
 export const SETTINGS_KEY = 'app_settings'
 export const SETTINGS_DEFAULTS: SettingsDto = {
+  // Plaid is the default feed for new installs (Teller signup closed);
+  // provider='teller' keeps the dormant Teller path fully functional.
+  provider: 'plaid',
   tellerEnv: 'sandbox',
+  plaidEnv: 'sandbox',
+  plaidClientId: null,
+  plaidSecretSet: false,
   syncIntervalHours: 6,
   ollamaUrl: DEFAULT_BASE_URL,
   ollamaModel: DEFAULT_MODEL,
   enrollmentsUsed: null,
+  plaidItemsUsed: null,
 }
+const PROVIDERS: ReadonlyArray<SettingsDto['provider']> = ['plaid', 'teller']
 const TELLER_ENVS: readonly TellerEnv[] = ['sandbox', 'development']
+const PLAID_ENVS: readonly PlaidEnv[] = ['sandbox', 'production']
 const EXPORT_ROW_LIMIT = 1_000_000
 
 export interface AppServiceDeps {
@@ -57,7 +83,9 @@ export interface AppServiceDeps {
   dialog: DialogApi
   makeLlm: (settings: SettingsDto) => LlmPort
   makeTellerClient: (accessToken: string) => TellerClientPort
+  makePlaidClient: MakePlaidClient
   startEnrollmentServer: (opts: EnrollmentServerOpts) => Promise<EnrollmentServerHandle>
+  startPlaidLinkServer: (opts: PlaidLinkServerOpts) => Promise<PlaidLinkServerHandle>
   /** open the enrollment URL in the system browser (electron shell in prod) */
   openExternal: (url: string) => Promise<void>
   getApplicationId: () => Promise<string>
@@ -195,12 +223,26 @@ export class AppService implements Api {
     )
   }
 
-  // ---- teller sync --------------------------------------------------------
+  // ---- bank-feed sync (provider-dispatched) --------------------------------
 
   async syncNow(): Promise<SyncReport> {
     const { repo, clock } = this.deps
     const settings = await this.getSettings()
     const ranAt = new Date(clock.nowMs()).toISOString()
+    if (settings.provider === 'plaid') {
+      const accounts = await syncPlaidProvider(
+        {
+          repo,
+          secrets: this.deps.secrets,
+          makePlaidClient: this.deps.makePlaidClient,
+          categorize: async (account, drafts) =>
+            (await this.categorizeDrafts(account, drafts, settings))?.leftUncategorized ?? 0,
+        },
+        settings,
+        ranAt,
+      )
+      return { ranAt, accounts }
+    }
     const tellerAccounts = repo
       .listAccounts()
       .filter((a) => a.sourceKind === 'teller' && a.tellerAccountId !== null && !a.closed)
@@ -298,25 +340,37 @@ export class AppService implements Api {
     }
   }
 
-  // ---- enrollment ---------------------------------------------------------
+  // ---- enrollment (provider-dispatched) ------------------------------------
 
   async startEnrollment(institution?: Institution): Promise<EnrollmentResult> {
     try {
+      const settings = await this.getSettings()
+      if (settings.provider === 'plaid') {
+        // Plaid Link picks the institution inside the widget — the hint is unused
+        return await this.runPlaidEnrollment(settings, {})
+      }
       return await this.runEnrollment({ institution })
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   }
 
-  /** update mode — MUST reuse the existing enrollment (plan §3 quota rule) */
+  /**
+   * Update mode — MUST reuse the existing connection: the Teller enrollment
+   * (plan §3 quota rule) or the Plaid Item (lifetime 10-Item cap).
+   */
   async reconnect(accountId: string): Promise<EnrollmentResult> {
     try {
+      const settings = await this.getSettings()
       const account = this.deps.repo.getAccount(accountId)
       if (account === null) throw new Error(`reconnect: unknown account ${accountId}`)
       if (account.tellerEnrollmentId === null) {
-        throw new Error(`reconnect: account ${accountId} has no Teller enrollment`)
+        throw new Error(`reconnect: account ${accountId} has no bank-feed enrollment`)
       }
-      const result = await this.runEnrollment({ existing: account })
+      const result =
+        settings.provider === 'plaid'
+          ? await this.runPlaidEnrollment(settings, { existing: account })
+          : await this.runEnrollment({ existing: account })
       this.deps.repo.updateAccountStatus(accountId, 'ok')
       return result
     } catch (err) {
@@ -340,17 +394,44 @@ export class AppService implements Api {
     })
   }
 
+  private async runPlaidEnrollment(
+    settings: SettingsDto,
+    opts: { existing?: AccountDto },
+  ): Promise<EnrollmentResult> {
+    return runPlaidEnrollment(this.deps, {
+      settings,
+      existing: opts.existing,
+      // only a brand-new Item (exchange) counts against the lifetime cap
+      recordNewItem: async () => {
+        const current = await this.getSettings()
+        await this.updateSettings({ plaidItemsUsed: (current.plaidItemsUsed ?? 0) + 1 })
+      },
+    })
+  }
+
   // ---- settings & export --------------------------------------------------
 
   async getSettings(): Promise<SettingsDto> {
     const stored = this.deps.repo.getSetting<Partial<SettingsDto>>(SETTINGS_KEY)
-    return { ...SETTINGS_DEFAULTS, ...(stored ?? {}) }
+    const merged = { ...SETTINGS_DEFAULTS, ...(stored ?? {}) }
+    // plaidSecretSet is DERIVED from the SecretStore (the secret itself is
+    // never stored in — or read back from — the settings row)
+    const secret = await this.deps.secrets.get(plaidSecretKey(merged.plaidEnv))
+    return { ...merged, plaidSecretSet: secret !== null }
   }
 
-  async updateSettings(patch: Partial<SettingsDto>): Promise<SettingsDto> {
+  async updateSettings(patch: SettingsPatch): Promise<SettingsDto> {
     validateSettingsPatch(patch)
-    const next = { ...(await this.getSettings()), ...patch }
-    this.deps.repo.setSetting(SETTINGS_KEY, next)
+    // plaidSecret is WRITE-ONLY: routed to the SecretStore, never persisted in
+    // the settings row and never echoed back (plaidSecretSet reflects presence)
+    const { plaidSecret, ...rest } = patch
+    const merged = { ...(await this.getSettings()), ...rest }
+    if (plaidSecret !== undefined) {
+      await this.deps.secrets.set(plaidSecretKey(merged.plaidEnv), plaidSecret)
+    }
+    const { plaidSecretSet: _derived, ...toStore } = merged
+    this.deps.repo.setSetting(SETTINGS_KEY, toStore)
+    const next = await this.getSettings()
     // let the host re-arm anything derived from settings (sync scheduler) —
     // a persisted-but-dormant syncIntervalHours would lie to the user
     this.deps.onSettingsChanged?.(next)
@@ -410,9 +491,32 @@ function dedupeById(txns: readonly TellerTransaction[]): TellerTransaction[] {
   return txns.filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
 }
 
-function validateSettingsPatch(patch: Partial<SettingsDto>): void {
+function validateSettingsPatch(patch: SettingsPatch): void {
+  if (patch.provider !== undefined && !PROVIDERS.includes(patch.provider)) {
+    throw new Error(`updateSettings: unknown provider ${JSON.stringify(patch.provider)}`)
+  }
   if (patch.tellerEnv !== undefined && !TELLER_ENVS.includes(patch.tellerEnv)) {
     throw new Error(`updateSettings: unknown tellerEnv ${JSON.stringify(patch.tellerEnv)}`)
+  }
+  if (patch.plaidEnv !== undefined && !PLAID_ENVS.includes(patch.plaidEnv)) {
+    throw new Error(`updateSettings: unknown plaidEnv ${JSON.stringify(patch.plaidEnv)}`)
+  }
+  if (
+    patch.plaidClientId !== undefined &&
+    patch.plaidClientId !== null &&
+    patch.plaidClientId.trim() === ''
+  ) {
+    throw new Error('updateSettings: plaidClientId must be non-empty or null')
+  }
+  if (patch.plaidSecret !== undefined && patch.plaidSecret.trim() === '') {
+    throw new Error('updateSettings: plaidSecret must be non-empty when provided')
+  }
+  if (
+    patch.plaidItemsUsed !== undefined &&
+    patch.plaidItemsUsed !== null &&
+    !(Number.isInteger(patch.plaidItemsUsed) && patch.plaidItemsUsed >= 0)
+  ) {
+    throw new Error('updateSettings: plaidItemsUsed must be a non-negative integer or null')
   }
   if (
     patch.syncIntervalHours !== undefined &&

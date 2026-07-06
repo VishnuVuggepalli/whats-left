@@ -84,6 +84,54 @@ export const AMEX_CATEGORY_MAP: Readonly<Record<string, CategoryId>> = {
   'Health Care': 'medical',
 }
 
+/**
+ * Plaid PFC primary → taxonomy: identity by construction — the taxonomy IS the
+ * PFC 16 primaries with lowercase ids (plan §2). Detailed overrides promote
+ * app-local categories (groceries).
+ */
+export const PLAID_PFC_PRIMARY_MAP: Readonly<Record<string, CategoryId>> = {
+  INCOME: 'income',
+  TRANSFER_IN: 'transfer_in',
+  TRANSFER_OUT: 'transfer_out',
+  LOAN_PAYMENTS: 'loan_payments',
+  BANK_FEES: 'bank_fees',
+  ENTERTAINMENT: 'entertainment',
+  FOOD_AND_DRINK: 'food_and_drink',
+  GENERAL_MERCHANDISE: 'general_merchandise',
+  HOME_IMPROVEMENT: 'home_improvement',
+  MEDICAL: 'medical',
+  PERSONAL_CARE: 'personal_care',
+  GENERAL_SERVICES: 'general_services',
+  GOVERNMENT_AND_NON_PROFIT: 'government_and_non_profit',
+  TRANSPORTATION: 'transportation',
+  TRAVEL: 'travel',
+  RENT_AND_UTILITIES: 'rent_and_utilities',
+}
+
+/** detailed PFC values that beat their primary (app-local promotions) */
+export const PLAID_PFC_DETAILED_MAP: Readonly<Record<string, CategoryId>> = {
+  FOOD_AND_DRINK_GROCERIES: 'groceries',
+}
+
+/**
+ * Plaid stores the PFC detailed string (or the primary) as sourceCategory.
+ * Resolution: detailed override → exact primary → primary prefix of a
+ * detailed label ('FOOD_AND_DRINK_COFFEE' → food_and_drink). No PFC primary
+ * is a prefix of another, so the prefix scan is unambiguous.
+ */
+export function resolvePlaidCategory(label: string): CategoryId | null {
+  const trimmed = label.trim()
+  if (trimmed === '') return null
+  const detailed = PLAID_PFC_DETAILED_MAP[trimmed]
+  if (detailed !== undefined) return detailed
+  const exact = PLAID_PFC_PRIMARY_MAP[trimmed]
+  if (exact !== undefined) return exact
+  for (const [primary, id] of Object.entries(PLAID_PFC_PRIMARY_MAP)) {
+    if (trimmed.startsWith(`${primary}_`)) return id
+  }
+  return null
+}
+
 /** Exact-then-prefix resolution for Amex 'Category-Subcategory' labels. */
 export function resolveAmexCategory(label: string): CategoryId | null {
   const trimmed = label.trim()
@@ -119,6 +167,9 @@ export function mapSourceCategory(source: Source, label: string | null): Categor
 
   let mapped: CategoryId | null
   switch (source) {
+    case 'plaid':
+      mapped = resolvePlaidCategory(trimmed)
+      break
     case 'teller':
       mapped = TELLER_CATEGORY_MAP[trimmed.toLowerCase()] ?? null
       break

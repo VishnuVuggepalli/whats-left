@@ -11,7 +11,7 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-or
 export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  institution: text('institution', { enum: ['chase', 'amex'] }).notNull(),
+  institution: text('institution', { enum: ['chase', 'amex', 'other'] }).notNull(),
   sourceKind: text('source_kind', { enum: ['teller', 'csv_only'] }).notNull(),
   tellerAccountId: text('teller_account_id'),
   tellerEnrollmentId: text('teller_enrollment_id'),
@@ -34,7 +34,7 @@ export const transactions = sqliteTable(
     accountId: text('account_id')
       .notNull()
       .references(() => accounts.id),
-    source: text('source', { enum: ['teller', 'chase_csv', 'amex_csv'] }).notNull(),
+    source: text('source', { enum: ['plaid', 'teller', 'chase_csv', 'amex_csv'] }).notNull(),
     /** bank-issued id only (Teller txn id, Amex Reference); NULL for hash-only rows */
     externalId: text('external_id'),
     /** synthesized sha256 — idempotency only, never treated as an id by the matcher */

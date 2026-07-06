@@ -433,6 +433,111 @@ describe('SqliteRepo.gcPending', () => {
     repo.gcPending([{ id: stale, replacementExternalId: 'txn_ghost' }])
     expect(getTxnRow(db, stale)['tombstone']).toBe(1)
   })
+
+  it('carries edits onto a PLAID replacement (pending_transaction_id flow)', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const stale = insertTxn(db, acct, {
+      status: 'pending',
+      source: 'plaid',
+      externalId: 'plaid-txn-pending-1',
+      notes: 'tip pending',
+      categoryId: 'food_and_drink',
+      categorySource: 'user',
+    })
+    const replacement = insertTxn(db, acct, {
+      status: 'posted',
+      source: 'plaid',
+      externalId: 'plaid-txn-posted-1',
+    })
+    repo.gcPending([{ id: stale, replacementExternalId: 'plaid-txn-posted-1' }])
+    expect(getTxnRow(db, replacement)).toMatchObject({
+      notes: 'tip pending',
+      category_id: 'food_and_drink',
+      category_source: 'user',
+    })
+    expect(getTxnRow(db, stale)['tombstone']).toBe(1)
+  })
+})
+
+describe('SqliteRepo.updateTxnStateByExternalId (plaid MODIFIED entries)', () => {
+  it('updates amount/dates/status and NEVER touches categorization or notes', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const id = insertTxn(db, acct, {
+      source: 'plaid',
+      externalId: 'plaid-txn-mod-1',
+      amountCents: -8710,
+      txnDate: '2026-06-27',
+      postDate: null,
+      status: 'pending',
+      categoryId: 'groceries',
+      categorySource: 'user',
+      notes: 'weekly shop',
+    })
+    const changed = repo.updateTxnStateByExternalId(acct, 'plaid-txn-mod-1', {
+      amountCents: -9241,
+      txnDate: '2026-06-27',
+      postDate: '2026-06-28',
+      status: 'posted',
+    })
+    expect(changed).toBe(1)
+    expect(getTxnRow(db, id)).toMatchObject({
+      amount_cents: -9241,
+      txn_date: '2026-06-27',
+      post_date: '2026-06-28',
+      status: 'posted',
+      // invariant 5: user categorization + notes survive the state update
+      category_id: 'groceries',
+      category_source: 'user',
+      notes: 'weekly shop',
+    })
+  })
+
+  it('returns 0 for an unknown external id or a tombstoned row (never throws)', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const state = { amountCents: -1, txnDate: '2026-01-01', postDate: null, status: 'posted' as const }
+    expect(repo.updateTxnStateByExternalId(acct, 'plaid-ghost', state)).toBe(0)
+    const dead = insertTxn(db, acct, { source: 'plaid', externalId: 'plaid-dead' })
+    db.prepare('UPDATE transactions SET tombstone = 1 WHERE id = ?').run(dead)
+    expect(repo.updateTxnStateByExternalId(acct, 'plaid-dead', state)).toBe(0)
+  })
+
+  it('is scoped to the given account', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const other = insertAccount(db)
+    const foreign = insertTxn(db, other, { source: 'plaid', externalId: 'plaid-elsewhere', amountCents: -500 })
+    const changed = repo.updateTxnStateByExternalId(acct, 'plaid-elsewhere', {
+      amountCents: -999,
+      txnDate: '2026-01-01',
+      postDate: null,
+      status: 'posted',
+    })
+    expect(changed).toBe(0)
+    expect(getTxnRow(db, foreign)['amount_cents']).toBe(-500)
+  })
+})
+
+describe('SqliteRepo.tombstoneByExternalId (plaid removed[] entries)', () => {
+  it('tombstones the live row — never deletes it', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    const id = insertTxn(db, acct, { source: 'plaid', externalId: 'plaid-txn-removed-1' })
+    expect(repo.tombstoneByExternalId(acct, 'plaid-txn-removed-1')).toBe(1)
+    const row = getTxnRow(db, id) // the row still exists
+    expect(row['tombstone']).toBe(1)
+  })
+
+  it('is idempotent: a second call (or an unknown id) is a 0-change no-op', () => {
+    const { db, repo } = makeRepo()
+    const acct = insertAccount(db)
+    insertTxn(db, acct, { source: 'plaid', externalId: 'plaid-txn-removed-2' })
+    expect(repo.tombstoneByExternalId(acct, 'plaid-txn-removed-2')).toBe(1)
+    expect(repo.tombstoneByExternalId(acct, 'plaid-txn-removed-2')).toBe(0)
+    expect(repo.tombstoneByExternalId(acct, 'plaid-never-seen')).toBe(0)
+  })
 })
 
 describe('SqliteRepo settings + sync log', () => {

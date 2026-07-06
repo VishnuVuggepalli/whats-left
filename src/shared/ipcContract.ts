@@ -8,6 +8,7 @@ import type {
   RecategorizeInput,
   ReviewItem,
   SettingsDto,
+  SettingsPatch,
   SyncReport,
   TransactionDto,
   TxnQuery,
@@ -56,7 +57,7 @@ export interface Api {
 
   // settings
   getSettings(): Promise<SettingsDto>
-  updateSettings(patch: Partial<SettingsDto>): Promise<SettingsDto>
+  updateSettings(patch: SettingsPatch): Promise<SettingsDto>
   exportData(): Promise<{ path: string }>
 }
 

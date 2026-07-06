@@ -3,7 +3,7 @@
  * namespace-scoped strictIdChecking, candidate consumption, ±7-day window.
  */
 import { describe, expect, it } from 'vitest'
-import { reconcile } from './reconciler'
+import { idNamespace, reconcile } from './reconciler'
 import { decisionAt, deepFreeze, expectMatch, makeDraft, makeExisting } from './testSupport'
 
 describe('reconcile — §5c test (a): CSV backfill then Teller drafts', () => {
@@ -136,6 +136,28 @@ describe('reconcile — namespace-scoped strictIdChecking', () => {
     const draft = makeDraft({ source: 'amex_csv', externalId: 'REF_9', importHash: 'other_hash', txnDate: '2026-06-02', amountCents: -777 })
     const m = expectMatch(decisionAt(reconcile([draft], [row]), 0))
     expect(m.updates.externalId).toBe('REF_9') // same-source upgrade case
+  })
+
+  it('two different Plaid ids on plaid-source rows never fuzzy-merge', () => {
+    // Plaid transaction_ids have NO reliable prefix, so idNamespace() calls
+    // them 'unknown' — the same-source fallback guard blocks the merge because
+    // every plaid row shares source 'plaid'. This is what keeps a posted txn
+    // (new id, pending_transaction_id set) from swallowing its pending twin:
+    // the pending is tombstoned via gcPending instead.
+    expect(idNamespace('plaid-txn-abc123')).toBe('unknown')
+    const row = makeExisting({ source: 'plaid', externalId: 'plaid-txn-a', txnDate: '2026-06-01', amountCents: -999 })
+    const draft = makeDraft({ source: 'plaid', externalId: 'plaid-txn-b', txnDate: '2026-06-01', amountCents: -999 })
+    const out = reconcile([draft], [row])
+    expect(decisionAt(out, 0).kind).toBe('insert')
+    expect(out.matched).toBe(0)
+  })
+
+  it('plaid ↔ hash-only csv rows stay fuzzy-eligible (cross-source backfill overlap)', () => {
+    const row = makeExisting({ source: 'chase_csv', externalId: null, importHash: 'csv_hash', txnDate: '2026-06-01', amountCents: -999 })
+    const draft = makeDraft({ source: 'plaid', externalId: 'plaid-txn-c', txnDate: '2026-06-01', amountCents: -999 })
+    const m = expectMatch(decisionAt(reconcile([draft], [row]), 0))
+    expect(m.existingId).toBe(row.id)
+    expect(m.updates.externalId).toBe('plaid-txn-c') // csv twin adopts the plaid id
   })
 })
 

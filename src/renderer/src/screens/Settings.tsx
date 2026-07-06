@@ -14,6 +14,8 @@ const INPUT_CLASS =
 export function Settings() {
   const { data, error, loading, reload } = useLoad(() => api.getSettings(), [])
   const [form, setForm] = useState<SettingsDto | null>(null)
+  // write-only: sent to the main process on save, never read back
+  const [plaidSecret, setPlaidSecret] = useState('')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [exportPath, setExportPath] = useState<string | null>(null)
@@ -34,10 +36,14 @@ export function Settings() {
     setSaveError(null)
     try {
       await api.updateSettings({
+        provider: form.provider,
+        plaidClientId: form.plaidClientId,
         syncIntervalHours: form.syncIntervalHours,
         ollamaUrl: form.ollamaUrl,
         ollamaModel: form.ollamaModel,
+        ...(plaidSecret.trim() !== '' ? { plaidSecret: plaidSecret.trim() } : {}),
       })
+      setPlaidSecret('')
       setSaved(true)
       reload()
     } catch (err: unknown) {
@@ -68,17 +74,19 @@ export function Settings() {
 
       {form !== null && (
         <>
-          <Card title="Teller">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-ink-dim">Environment</span>
-              <Badge tone={form.tellerEnv === 'development' ? 'info' : 'neutral'}>{form.tellerEnv}</Badge>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="text-ink-dim">Lifetime enrollments used</span>
-              <span className="tabular-nums">
-                {form.enrollmentsUsed !== null ? `${form.enrollmentsUsed} / 100` : 'unknown'}
-              </span>
-            </div>
+          <Card title="Bank feed">
+            <label className="block text-sm">
+              <span className="text-ink-dim">Provider</span>
+              <select
+                className={`${INPUT_CLASS} mt-1`}
+                value={form.provider}
+                onChange={(e) => patch({ provider: e.target.value as SettingsDto['provider'] })}
+                aria-label="Bank feed provider"
+              >
+                <option value="plaid">Plaid</option>
+                <option value="teller">Teller (signup closed)</option>
+              </select>
+            </label>
             <label className="mt-3 block text-sm">
               <span className="text-ink-dim">Sync interval (hours)</span>
               <input
@@ -91,6 +99,57 @@ export function Settings() {
               />
             </label>
           </Card>
+
+          {form.provider === 'plaid' && (
+            <Card title="Plaid">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-dim">Environment</span>
+                <Badge tone={form.plaidEnv === 'production' ? 'info' : 'neutral'}>{form.plaidEnv}</Badge>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-ink-dim">Lifetime Items used</span>
+                <span className="tabular-nums">
+                  {form.plaidItemsUsed !== null ? `${form.plaidItemsUsed} / 10` : 'none yet'}
+                </span>
+              </div>
+              <label className="mt-3 block text-sm">
+                <span className="text-ink-dim">Client ID</span>
+                <input
+                  className={`${INPUT_CLASS} mt-1`}
+                  value={form.plaidClientId ?? ''}
+                  onChange={(e) => patch({ plaidClientId: e.target.value.trim() === '' ? null : e.target.value })}
+                />
+              </label>
+              <label className="mt-3 block text-sm">
+                <span className="text-ink-dim">Secret (write-only)</span>
+                <input
+                  type="password"
+                  className={`${INPUT_CLASS} mt-1`}
+                  value={plaidSecret}
+                  placeholder={form.plaidSecretSet ? '••• set' : 'not set'}
+                  onChange={(e) => {
+                    setSaved(false)
+                    setPlaidSecret(e.target.value)
+                  }}
+                />
+              </label>
+            </Card>
+          )}
+
+          {form.provider === 'teller' && (
+            <Card title="Teller">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-dim">Environment</span>
+                <Badge tone={form.tellerEnv === 'development' ? 'info' : 'neutral'}>{form.tellerEnv}</Badge>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-ink-dim">Lifetime enrollments used</span>
+                <span className="tabular-nums">
+                  {form.enrollmentsUsed !== null ? `${form.enrollmentsUsed} / 100` : 'unknown'}
+                </span>
+              </div>
+            </Card>
+          )}
 
           <Card title="Ollama (local categorizer)">
             <label className="block text-sm">

@@ -19,8 +19,15 @@ const STATUS_TONE: Record<AccountDto['status'], BadgeTone> = {
   error: 'danger',
 }
 
+const INSTITUTION_LABEL: Record<Institution, string> = {
+  chase: 'Chase',
+  amex: 'American Express',
+  other: 'Other bank',
+}
+
 export function Accounts() {
   const { data: accounts, error, loading, reload } = useLoad(() => api.listAccounts(), [])
+  const { data: settings, reload: reloadSettings } = useLoad(() => api.getSettings(), [])
   const [actionError, setActionError] = useState<string | null>(null)
   const [syncReport, setSyncReport] = useState<SyncReport | null>(null)
   const [busy, setBusy] = useState(false)
@@ -32,6 +39,7 @@ export function Accounts() {
     try {
       await action()
       reload()
+      reloadSettings() // enrollment updates the lifetime quota counters
     } catch (err: unknown) {
       setActionError(errorMessage(err))
     } finally {
@@ -40,31 +48,35 @@ export function Accounts() {
   }
 
   const tellerAccounts = (accounts ?? []).filter((a) => a.sourceKind === 'teller')
+  const provider = settings?.provider ?? 'plaid'
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Accounts</h1>
         <div className="flex items-center gap-2">
-          <select
-            className={SELECT_CLASS}
-            value={institution}
-            onChange={(e) => setInstitution(e.target.value as Institution)}
-            aria-label="Institution to connect"
-          >
-            <option value="chase">Chase</option>
-            <option value="amex">American Express</option>
-          </select>
+          {provider === 'teller' && (
+            <select
+              className={SELECT_CLASS}
+              value={institution}
+              onChange={(e) => setInstitution(e.target.value as Institution)}
+              aria-label="Institution to connect"
+            >
+              <option value="chase">Chase</option>
+              <option value="amex">American Express</option>
+            </select>
+          )}
           <Button
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                const res = await api.startEnrollment(institution)
+                // Plaid Link picks the institution inside the widget
+                const res = await api.startEnrollment(provider === 'teller' ? institution : undefined)
                 if (!res.ok) throw new Error(res.error ?? 'Enrollment failed')
               })
             }
           >
-            Add via Teller
+            {provider === 'plaid' ? 'Add via Plaid' : 'Add via Teller'}
           </Button>
           <Button
             variant="ghost"
@@ -79,6 +91,12 @@ export function Accounts() {
           </Button>
         </div>
       </div>
+
+      {provider === 'plaid' && (
+        <p className="text-xs text-muted">
+          Plaid Items used: {settings?.plaidItemsUsed ?? 0} of 10 (lifetime)
+        </p>
+      )}
 
       {actionError !== null && <p className="text-neg">{actionError}</p>}
       {error !== null && <p className="text-neg">Failed to load accounts: {error}</p>}
@@ -115,9 +133,9 @@ export function Accounts() {
                   {acct.mask !== null && <span className="ml-1 text-muted">•{acct.mask}</span>}
                 </p>
                 <p className="mt-0.5 text-xs text-muted">
-                  {acct.institution === 'chase' ? 'Chase' : 'American Express'} · {acct.type}
+                  {INSTITUTION_LABEL[acct.institution]} · {acct.type}
                   {acct.subtype !== null ? ` (${acct.subtype})` : ''} ·{' '}
-                  {acct.sourceKind === 'teller' ? 'Teller feed' : 'CSV only'}
+                  {acct.sourceKind === 'teller' ? 'Bank feed' : 'CSV only'}
                 </p>
               </div>
               <Badge tone={STATUS_TONE[acct.status]}>{acct.status.replace('_', ' ')}</Badge>

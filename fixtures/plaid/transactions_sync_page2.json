@@ -1,0 +1,53 @@
+{
+  "added": [
+    {
+      "transaction_id": "plaid-txn-posted-coffee-04",
+      "account_id": "plaid-acc-amex-01",
+      "amount": 4.85,
+      "iso_currency_code": "USD",
+      "date": "2026-07-06",
+      "authorized_date": "2026-07-04",
+      "name": "TST* COFFEE HOUSE 0042 SEATTLE WA",
+      "merchant_name": "Coffee House",
+      "pending": false,
+      "pending_transaction_id": "plaid-txn-pending-coffee-01",
+      "personal_finance_category": {
+        "primary": "FOOD_AND_DRINK",
+        "detailed": "FOOD_AND_DRINK_COFFEE",
+        "confidence_level": "VERY_HIGH"
+      },
+      "payment_channel": "in store",
+      "transaction_code": null
+    }
+  ],
+  "modified": [
+    {
+      "transaction_id": "plaid-txn-groceries-02",
+      "account_id": "plaid-acc-amex-01",
+      "amount": 92.41,
+      "iso_currency_code": "USD",
+      "date": "2026-06-28",
+      "authorized_date": "2026-06-27",
+      "name": "WHOLEFDS SEA 10221 SEATTLE WA",
+      "merchant_name": "Whole Foods Market",
+      "pending": false,
+      "pending_transaction_id": null,
+      "personal_finance_category": {
+        "primary": "FOOD_AND_DRINK",
+        "detailed": "FOOD_AND_DRINK_GROCERIES",
+        "confidence_level": "VERY_HIGH"
+      },
+      "payment_channel": "in store",
+      "transaction_code": null
+    }
+  ],
+  "removed": [
+    {
+      "transaction_id": "plaid-txn-voided-hold-05",
+      "account_id": "plaid-acc-amex-01"
+    }
+  ],
+  "next_cursor": "plaid-cursor-page-2",
+  "has_more": false,
+  "request_id": "req-sync-0002"
+}

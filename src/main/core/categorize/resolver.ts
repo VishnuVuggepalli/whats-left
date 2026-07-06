@@ -62,7 +62,8 @@ export function resolveCategory(input: ResolveInput, deps: ResolveDeps): Resolve
       // rebate, never income (plan §5d). Unknown merchant → let the LLM decide.
       return { needsLlm: true }
     }
-    writeCacheRow(deps.cache, merchant, mapped, cacheSourceFor(draft.source))
+    const cacheSource = cacheSourceFor(draft.source)
+    if (cacheSource !== null) writeCacheRow(deps.cache, merchant, mapped, cacheSource)
     return { categoryId: mapped, categorySource: 'source' }
   }
 
@@ -119,8 +120,14 @@ export function applyLlmResults(
   return { written, skippedLocked }
 }
 
-function cacheSourceFor(source: Source): 'teller' | 'chase' | 'amex' {
+function cacheSourceFor(source: Source): 'teller' | 'chase' | 'amex' | null {
   switch (source) {
+    case 'plaid':
+      // merchant_category_cache.source has no 'plaid' value (frozen schema
+      // CHECK) and every plaid row already carries its PFC label, so tier 3
+      // always resolves plaid rows without a cache row — skip the write
+      // instead of widening the CHECK constraint.
+      return null
     case 'teller':
       return 'teller'
     case 'chase_csv':

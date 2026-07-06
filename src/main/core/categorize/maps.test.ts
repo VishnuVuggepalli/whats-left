@@ -5,10 +5,13 @@ import { CATEGORY_IDS } from './taxonomy'
 import {
   AMEX_CATEGORY_MAP,
   CHASE_CATEGORY_MAP,
+  PLAID_PFC_DETAILED_MAP,
+  PLAID_PFC_PRIMARY_MAP,
   TELLER_CATEGORY_MAP,
   clearUnknownSourceLabels,
   getUnknownSourceLabels,
   mapSourceCategory,
+  resolvePlaidCategory,
   resolveAmexCategory,
 } from './maps'
 
@@ -141,11 +144,65 @@ describe('AMEX_CATEGORY_MAP / resolveAmexCategory', () => {
   })
 })
 
+describe('PLAID_PFC maps / resolvePlaidCategory', () => {
+  it('maps all 16 PFC primaries to same-named lowercase taxonomy ids', () => {
+    expect(Object.keys(PLAID_PFC_PRIMARY_MAP)).toHaveLength(16)
+    for (const [primary, id] of Object.entries(PLAID_PFC_PRIMARY_MAP)) {
+      expect(CATEGORY_IDS).toContain(id)
+      expect(id).toBe(primary.toLowerCase()) // identity by construction
+    }
+    // no primary is a prefix of another — the detailed-prefix scan is unambiguous
+    const primaries = Object.keys(PLAID_PFC_PRIMARY_MAP)
+    for (const a of primaries) {
+      for (const b of primaries) {
+        if (a !== b) expect(b.startsWith(`${a}_`)).toBe(false)
+      }
+    }
+  })
+
+  it('detailed overrides map to valid taxonomy ids', () => {
+    for (const id of Object.values(PLAID_PFC_DETAILED_MAP)) {
+      expect(CATEGORY_IDS).toContain(id)
+    }
+  })
+
+  it('FOOD_AND_DRINK_GROCERIES resolves to the promoted groceries category', () => {
+    expect(resolvePlaidCategory('FOOD_AND_DRINK_GROCERIES')).toBe('groceries')
+  })
+
+  it('other detailed labels resolve via their primary prefix', () => {
+    expect(resolvePlaidCategory('FOOD_AND_DRINK_COFFEE')).toBe('food_and_drink')
+    expect(resolvePlaidCategory('INCOME_WAGES')).toBe('income')
+    expect(resolvePlaidCategory('TRANSFER_OUT_ACCOUNT_TRANSFER')).toBe('transfer_out')
+    expect(resolvePlaidCategory('TRANSFER_IN_DEPOSIT')).toBe('transfer_in')
+  })
+
+  it('bare primaries resolve directly (sourceCategory fallback when detailed is absent)', () => {
+    expect(resolvePlaidCategory('TRAVEL')).toBe('travel')
+    expect(resolvePlaidCategory('RENT_AND_UTILITIES')).toBe('rent_and_utilities')
+  })
+
+  it('unknown labels return null, never throw', () => {
+    expect(resolvePlaidCategory('CRYPTO_YOLO')).toBeNull()
+    expect(resolvePlaidCategory('')).toBeNull()
+    expect(resolvePlaidCategory('  ')).toBeNull()
+  })
+})
+
 describe('mapSourceCategory', () => {
   it('dispatches chase_csv labels to the Chase map (trims whitespace)', () => {
     expect(mapSourceCategory('chase_csv', 'Groceries')).toBe('groceries')
     expect(mapSourceCategory('chase_csv', ' Groceries ')).toBe('groceries')
     expect(mapSourceCategory('chase_csv', 'Bills & Utilities')).toBe('rent_and_utilities')
+  })
+
+  it('dispatches plaid PFC labels (detailed stored as sourceCategory)', () => {
+    expect(mapSourceCategory('plaid', 'FOOD_AND_DRINK_GROCERIES')).toBe('groceries')
+    expect(mapSourceCategory('plaid', 'FOOD_AND_DRINK_COFFEE')).toBe('food_and_drink')
+    expect(mapSourceCategory('plaid', 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT')).toBe('loan_payments')
+    expect(mapSourceCategory('plaid', 'GENERAL_MERCHANDISE')).toBe('general_merchandise')
+    expect(mapSourceCategory('plaid', 'SOMETHING_NEW')).toBeNull()
+    expect(getUnknownSourceLabels()).toEqual(['plaid:SOMETHING_NEW'])
   })
 
   it('dispatches teller labels case-insensitively', () => {

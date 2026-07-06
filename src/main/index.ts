@@ -9,9 +9,11 @@ import { seedTaxonomy } from './db/seed'
 import { registerIpc } from './ipc'
 import type { DialogApi } from './platform/api'
 import { startEnrollmentServer } from './platform/enrollmentServer'
+import { startPlaidLinkServer } from './platform/plaidLinkServer'
 import { SafeStorageSecretStore } from './platform/secrets'
 import { AppService, SETTINGS_DEFAULTS, SETTINGS_KEY } from './services/appService'
 import {
+  createPlaidClientFactory,
   createTellerClientFactory,
   loadDevSecrets,
   makeLlmFromSettings,
@@ -133,7 +135,9 @@ async function main(): Promise<void> {
     dialog: makeDialogApi(() => win),
     makeLlm: makeLlmFromSettings,
     makeTellerClient: createTellerClientFactory(devSecrets),
+    makePlaidClient: createPlaidClientFactory(),
     startEnrollmentServer,
+    startPlaidLinkServer,
     openExternal: (url) => shell.openExternal(url),
     getApplicationId: async () => {
       const fromEnv = process.env['TELLER_APPLICATION_ID']

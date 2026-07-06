@@ -215,10 +215,15 @@ export function seedTransactions(): MockSeed {
 
 export function seedSettings(): SettingsDto {
   return {
+    provider: 'plaid',
     tellerEnv: 'sandbox',
+    plaidEnv: 'sandbox',
+    plaidClientId: 'mock_plaid_client_id',
+    plaidSecretSet: true,
     syncIntervalHours: 8,
     ollamaUrl: 'http://localhost:11434',
     ollamaModel: 'qwen3:8b',
     enrollmentsUsed: 2,
+    plaidItemsUsed: 2,
   }
 }

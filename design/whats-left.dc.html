@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0F172A}
+::selection{background:rgba(59,130,246,0.35)}
+a{color:#3B82F6;text-decoration:none}
+a:hover{color:#60A5FA}
+:focus-visible{outline:2px solid #3B82F6;outline-offset:2px;border-radius:4px}
+button:focus{outline:none}
+button:focus-visible{outline:2px solid #3B82F6;outline-offset:2px}
+input:focus-visible{outline:2px solid #3B82F6;outline-offset:1px}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.11);border-radius:6px;border:3px solid #0F172A}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes sk{0%{background-position:-280px 0}100%{background-position:280px 0}}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;width:1280px;max-width:100%;height:800px;margin:0 auto;background:#0F172A;color:#fff;font-family:'Fira Sans',system-ui,sans-serif;font-size:13px;overflow:hidden">
+
+  <header style="height:52px;flex:none;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.72);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);position:relative;z-index:30">
+    <div style="flex:none;display:flex;align-items:center;gap:9px;margin-right:30px">
+      <div style="width:23px;height:23px;border-radius:7px;background:#3B82F6;display:flex;align-items:center;justify-content:center;flex:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      </div>
+      <span style="font-weight:600;font-size:14px;letter-spacing:-0.01em;white-space:nowrap">What's Left</span>
+    </div>
+
+    <nav style="flex:none;display:flex;align-items:center;gap:1px">
+      <button onClick="{{ goDashboard }}" style="position:relative;display:flex;align-items:center;height:52px;padding:0 13px;border:0;background:transparent;color:{{ tab.dashboard.fg }};font:500 13px 'Fira Sans';cursor:pointer;transition:color .15s;white-space:nowrap" style-hover="color:#fff">Dashboard<span style="position:absolute;left:13px;right:13px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:{{ tab.dashboard.bar }};transition:background .15s"></span></button>
+      <button onClick="{{ goTransactions }}" style="position:relative;display:flex;align-items:center;height:52px;padding:0 13px;border:0;background:transparent;color:{{ tab.transactions.fg }};font:500 13px 'Fira Sans';cursor:pointer;transition:color .15s;white-space:nowrap" style-hover="color:#fff">Transactions<span style="position:absolute;left:13px;right:13px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:{{ tab.transactions.bar }};transition:background .15s"></span></button>
+      <button onClick="{{ goAccounts }}" style="position:relative;display:flex;align-items:center;height:52px;padding:0 13px;border:0;background:transparent;color:{{ tab.accounts.fg }};font:500 13px 'Fira Sans';cursor:pointer;transition:color .15s;white-space:nowrap" style-hover="color:#fff">Accounts<span style="position:absolute;left:13px;right:13px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:{{ tab.accounts.bar }};transition:background .15s"></span></button>
+      <button onClick="{{ goImport }}" style="position:relative;display:flex;align-items:center;height:52px;padding:0 13px;border:0;background:transparent;color:{{ tab.import.fg }};font:500 13px 'Fira Sans';cursor:pointer;transition:color .15s;white-space:nowrap" style-hover="color:#fff">Import<span style="position:absolute;left:13px;right:13px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:{{ tab.import.bar }};transition:background .15s"></span></button>
+      <button onClick="{{ goReview }}" style="position:relative;display:flex;align-items:center;gap:7px;height:52px;padding:0 13px;border:0;background:transparent;color:{{ tab.review.fg }};font:500 13px 'Fira Sans';cursor:pointer;transition:color .15s;white-space:nowrap" style-hover="color:#fff">Review<sc-if value="{{ reviewCount }}" hint-placeholder-val="{{ true }}"><span style="font:600 10px 'Fira Code';padding:1px 6px;border-radius:999px;background:rgba(217,119,6,0.2);color:#FBBF24">{{ reviewCount }}</span></sc-if><span style="position:absolute;left:13px;right:13px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:{{ tab.review.bar }};transition:background .15s"></span></button>
+      <button onClick="{{ goGoals }}" style="position:relative;display:flex;align-items:center;height:52px;padding:0 13px;border:0;background:transparent;color:{{ tab.goals.fg }};font:500 13px 'Fira Sans';cursor:pointer;transition:color .15s;white-space:nowrap" style-hover="color:#fff">Goals<span style="position:absolute;left:13px;right:13px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:{{ tab.goals.bar }};transition:background .15s"></span></button>
+      <button onClick="{{ goSettings }}" style="position:relative;display:flex;align-items:center;height:52px;padding:0 13px;border:0;background:transparent;color:{{ tab.settings.fg }};font:500 13px 'Fira Sans';cursor:pointer;transition:color .15s;white-space:nowrap" style-hover="color:#fff">Settings<span style="position:absolute;left:13px;right:13px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:{{ tab.settings.bar }};transition:background .15s"></span></button>
+    </nav>
+
+    <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;gap:8px">
+      <sc-if value="{{ footerAmber }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ goAccounts }}" style="display:flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid rgba(217,119,6,0.32);border-radius:999px;background:rgba(217,119,6,0.09);color:#FBBF24;font:500 11.5px 'Fira Sans';cursor:pointer;transition:background .15s;white-space:nowrap" style-hover="background:rgba(217,119,6,0.15)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span>{{ footerText }}</span></button>
+      </sc-if>
+      <sc-if value="{{ footerOk }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid rgba(255,255,255,0.08);border-radius:999px;color:#94A3B8;font:500 11.5px 'Fira Sans';white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:#059669;flex:none"></span><span>{{ footerText }}</span></div>
+      </sc-if>
+      <button onClick="{{ goTokens }}" title="Design tokens" aria-label="Design tokens" style="display:flex;padding:7px;border-radius:8px;border:0;background:{{ tab.tokens.bg }};color:{{ tab.tokens.fg }};cursor:pointer;transition:all .15s" style-hover="color:#fff;background:rgba(255,255,255,0.06)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg></button>
+    </div>
+  </header>
+
+  <div style="height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 30px;border-bottom:1px solid rgba(255,255,255,0.06)">
+    <div style="display:flex;align-items:center;gap:16px;min-width:0">
+      <h1 style="margin:0;font-weight:600;font-size:16px;letter-spacing:-0.01em">{{ screenTitle }}</h1>
+      <sc-if value="{{ showAnnual }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="width:1px;height:16px;background:rgba(255,255,255,0.12)"></span>
+          <span style="font:500 11px 'Fira Sans';color:#64748B">Left, 12 mo</span>
+          <span style="font:600 13px 'Fira Code';color:{{ annualColor }}">{{ annualValue }}</span>
+        </div>
+      </sc-if>
+    </div>
+    <sc-if value="{{ showStateToggle }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:500 10px 'Fira Sans';letter-spacing:0.09em;color:#475569;text-transform:uppercase">Preview state</span>
+        <div style="display:inline-flex;background:#0B1428;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:3px;gap:1px">
+          <button onClick="{{ setModeData }}" style="padding:5px 11px;border:0;border-radius:6px;background:{{ seg.data.bg }};color:{{ seg.data.fg }};font:500 12px 'Fira Sans';cursor:pointer;transition:all .12s" style-hover="color:#E2E8F0">Data</button>
+          <button onClick="{{ setModeLoading }}" style="padding:5px 11px;border:0;border-radius:6px;background:{{ seg.loading.bg }};color:{{ seg.loading.fg }};font:500 12px 'Fira Sans';cursor:pointer;transition:all .12s" style-hover="color:#E2E8F0">Loading</button>
+          <button onClick="{{ setModeEmpty }}" style="padding:5px 11px;border:0;border-radius:6px;background:{{ seg.empty.bg }};color:{{ seg.empty.fg }};font:500 12px 'Fira Sans';cursor:pointer;transition:all .12s" style-hover="color:#E2E8F0">Empty</button>
+          <button onClick="{{ setModeError }}" style="padding:5px 11px;border:0;border-radius:6px;background:{{ seg.error.bg }};color:{{ seg.error.fg }};font:500 12px 'Fira Sans';cursor:pointer;transition:all .12s" style-hover="color:#E2E8F0">Error</button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto">
+
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Dashboard">
+
+          <sc-if value="{{ modeData }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:24px 30px 44px;max-width:1180px">
+              <sc-if value="{{ bannerPresent }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:22px;border:1px solid rgba(217,119,6,0.35);background:rgba(217,119,6,0.09);border-radius:10px;animation:fadein .18s ease-out">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                  <div style="flex:1;font-size:13px;color:#FCD34D">Card payments don't match across accounts.</div>
+                  <button onClick="{{ goReviewFromBanner }}" style="padding:5px 12px;border:1px solid rgba(251,191,36,0.4);border-radius:7px;background:transparent;color:#FBBF24;font:600 12px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(251,191,36,0.12)">Review</button>
+                  <button onClick="{{ dismissBanner }}" aria-label="Dismiss" style="display:flex;padding:5px;border:0;border-radius:6px;background:transparent;color:#B45309;cursor:pointer" style-hover="color:#FBBF24;background:rgba(251,191,36,0.1)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                </div>
+              </sc-if>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+                <div style="display:inline-flex;align-items:center;gap:3px">
+                  <button onClick="{{ prevMonth }}" aria-label="Previous month" style="display:flex;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:7px;background:transparent;color:#94A3B8;cursor:pointer;transition:all .15s" style-hover="color:#fff;background:rgba(255,255,255,0.05)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                  <div style="min-width:132px;text-align:center;font-weight:600;font-size:14px">{{ monthLabel }}</div>
+                  <button onClick="{{ nextMonth }}" aria-label="Next month" style="display:flex;padding:6px;border:1px solid rgba(255,255,255,0.1);border-radius:7px;background:transparent;color:#94A3B8;cursor:pointer;transition:all .15s" style-hover="color:#fff;background:rgba(255,255,255,0.05)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                  <span style="margin-left:10px;font:500 11px 'Fira Sans';color:#475569">Use ← → to change month</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <sc-if value="{{ hasUnexpected }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);color:#CBD5E1;font:500 12px 'Fira Sans';white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 6v12"/><path d="M17.196 9 6.804 15"/><path d="m6.804 9 10.392 6"/></svg><span style="font-family:'Fira Code'">{{ unexpectedTotal }}</span> unexpected</span>
+                  </sc-if>
+                  <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ true }}">
+                    <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:999px;background:rgba(217,119,6,0.13);color:#FBBF24;font:500 12px 'Fira Sans'">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span style="font-family:'Fira Code'">{{ pendingTotal }}</span> pending
+                    </span>
+                  </sc-if>
+                </div>
+              </div>
+
+              <div style="margin-bottom:32px">
+                <div style="font:500 12px 'Fira Sans';letter-spacing:0.07em;text-transform:uppercase;color:#94A3B8;margin-bottom:10px">Spent in {{ monthShort }}</div>
+                <div style="font-family:'Fira Code';font-weight:700;font-size:clamp(2.5rem,5.5vw,4rem);line-height:1;letter-spacing:-0.02em">{{ heroTotal }}</div>
+                <div style="display:flex;align-items:center;gap:7px;margin-top:14px;font:500 13px 'Fira Sans';color:#94A3B8">
+                  <sc-if value="{{ deltaUp }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></sc-if>
+                  <sc-if value="{{ deltaDown }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></sc-if>
+                  <span style="font-family:'Fira Code';color:#CBD5E1">{{ deltaText }}</span>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:20px">
+                <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 22px">
+                  <div style="font-weight:600;font-size:15px">Where it went</div>
+                  <div style="font:500 11px 'Fira Sans';color:#64748B;margin:3px 0 20px">By category · sorted by spend</div>
+                  <sc-for list="{{ catBars }}" as="c" hint-placeholder-count="8">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px">
+                      <div style="width:104px;flex:none;font:500 12px 'Fira Sans';color:#CBD5E1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.label }}</div>
+                      <div style="flex:1;height:22px;background:rgba(255,255,255,0.04);border-radius:5px;position:relative">
+                        <div style="position:absolute;top:0;left:0;bottom:0;width:{{ c.pct }};background:{{ c.color }};border-radius:5px;min-width:4px;transition:width .2s ease-in-out"></div>
+                      </div>
+                      <div style="width:80px;flex:none;font:500 13px 'Fira Code';text-align:right">{{ c.amount }}</div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ refunds.present }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.08)">
+                      <span style="display:inline-flex;align-items:center;gap:8px;font:500 12px 'Fira Sans';color:#94A3B8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>Refunds received</span>
+                      <span style="font:500 13px 'Fira Code';color:#34D399">{{ refunds.amount }}</span>
+                    </div>
+                  </sc-if>
+                </div>
+
+                <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 22px">
+                  <div style="font-weight:600;font-size:15px">Top merchants</div>
+                  <div style="font:500 11px 'Fira Sans';color:#64748B;margin:3px 0 12px">This month · top 8</div>
+                  <sc-for list="{{ topMerchants }}" as="m" hint-placeholder-count="8">
+                    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                      <div style="width:16px;flex:none;font:500 12px 'Fira Code';color:#475569;text-align:right">{{ m.rank }}</div>
+                      <div style="flex:1;font-size:13px;color:#E2E8F0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.payee }}</div>
+                      <div style="font:500 13px 'Fira Code';text-align:right">{{ m.amount }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 22px 16px">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                  <div>
+                    <div style="font-weight:600;font-size:15px">Spend vs income</div>
+                    <div style="font:500 11px 'Fira Sans';color:#64748B;margin-top:3px">Last 12 months</div>
+                  </div>
+                  <div style="display:flex;gap:16px;align-items:center">
+                    <span style="display:inline-flex;align-items:center;gap:7px;font:500 12px 'Fira Sans';color:#CBD5E1"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#E2E8F0" stroke-width="2"/></svg>Spend</span>
+                    <span style="display:inline-flex;align-items:center;gap:7px;font:500 12px 'Fira Sans';color:#94A3B8"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#64748B" stroke-width="2" stroke-dasharray="4 3"/></svg>Income</span>
+                  </div>
+                </div>
+                <div style="position:relative" onMouseLeave="{{ clearHover }}">
+                  <sc-if value="{{ hoveredCol }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:-4px;left:{{ hoveredCol.left }};transform:translateX(-50%);background:#0B1222;border:1px solid rgba(255,255,255,0.13);border-radius:8px;padding:8px 11px;pointer-events:none;z-index:5;white-space:nowrap;box-shadow:0 8px 22px rgba(0,0,0,0.45)">
+                      <div style="font:500 11px 'Fira Sans';color:#94A3B8;margin-bottom:5px">{{ hoveredCol.m }}</div>
+                      <div style="display:flex;gap:14px">
+                        <span style="font:500 12px 'Fira Code';color:#E2E8F0">{{ hoveredCol.spend }}</span>
+                        <span style="font:500 12px 'Fira Code';color:#94A3B8">{{ hoveredCol.income }}</span>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <svg viewBox="0 0 700 200" preserveAspectRatio="none" style="width:100%;height:200px;display:block">
+                    <sc-for list="{{ trendGrid }}" as="g" hint-placeholder-count="3"><line x1="0" y1="{{ g.y }}" x2="700" y2="{{ g.y }}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/></sc-for>
+                    <polyline points="{{ incomePoints }}" fill="none" stroke="#64748B" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+                    <polyline points="{{ spendPoints }}" fill="none" stroke="#E2E8F0" stroke-width="2" vector-effect="non-scaling-stroke"/>
+                    <sc-if value="{{ hoveredCol }}" hint-placeholder-val="{{ false }}">
+                      <line x1="{{ hoveredCol.x }}" y1="14" x2="{{ hoveredCol.x }}" y2="176" stroke="rgba(255,255,255,0.18)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+                      <circle cx="{{ hoveredCol.x }}" cy="{{ hoveredCol.incomeY }}" r="3.5" fill="#0F172A" stroke="#94A3B8" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+                      <circle cx="{{ hoveredCol.x }}" cy="{{ hoveredCol.spendY }}" r="3.5" fill="#0F172A" stroke="#E2E8F0" stroke-width="2" vector-effect="non-scaling-stroke"/>
+                    </sc-if>
+                    <sc-for list="{{ trendCols }}" as="col" hint-placeholder-count="12"><rect x="{{ col.rectX }}" y="0" width="{{ col.rectW }}" height="200" fill="transparent" onMouseEnter="{{ col.onEnter }}" style="cursor:pointer"/></sc-for>
+                  </svg>
+                  <div style="display:flex;justify-content:space-between;margin-top:8px;padding:0 2px">
+                    <sc-for list="{{ trendCols }}" as="col" hint-placeholder-count="12"><span style="font:500 10px 'Fira Code';color:#475569">{{ col.m }}</span></sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 30px 44px;max-width:1180px">
+              <div style="width:150px;height:13px;margin-bottom:26px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div>
+              <div style="width:110px;height:12px;margin-bottom:14px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div>
+              <div style="width:300px;height:58px;margin-bottom:14px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:8px"></div>
+              <div style="width:170px;height:12px;margin-bottom:34px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div>
+              <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px">
+                <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:22px">
+                  <sc-for list="{{ skel8 }}" as="s" hint-placeholder-count="8"><div style="height:22px;margin-bottom:11px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div></sc-for>
+                </div>
+                <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:22px">
+                  <sc-for list="{{ skel8 }}" as="s" hint-placeholder-count="8"><div style="height:18px;margin-bottom:14px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div></sc-for>
+                </div>
+              </div>
+              <div style="height:238px;margin-top:20px;background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px"></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:#101A34;border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">Nothing here yet</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:330px;line-height:1.55;margin-bottom:26px">Import a CSV or connect a bank to see where your money goes.</div>
+              <div style="display:flex;gap:10px">
+                <button onClick="{{ goImport }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Import a CSV</button>
+                <button onClick="{{ goAccounts }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)">Connect a bank</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeError }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">Couldn't refresh your dashboard</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:380px;line-height:1.55;margin-bottom:26px">We reached Chase, but the Amex connection timed out. The figures below may be up to a day old until the sync completes.</div>
+              <div style="display:flex;gap:10px">
+                <button onClick="{{ setModeData }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Retry sync</button>
+                <button onClick="{{ goAccounts }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)">View accounts</button>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isTransactions }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Transactions">
+
+          <sc-if value="{{ modeData }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:18px 30px 0;max-width:1180px">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <div style="position:relative;flex:1;min-width:210px;max-width:300px">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input ref="{{ searchRef }}" value="{{ search }}" onInput="{{ onSearch }}" placeholder="Search payee…" style="width:100%;padding:8px 12px 8px 34px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font:400 13px 'Fira Sans'"/>
+                  <span style="position:absolute;right:9px;top:50%;transform:translateY(-50%);font:600 10px 'Fira Code';color:#475569;border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:1px 5px;pointer-events:none">/</span>
+                </div>
+                <select value="{{ filterAccount }}" onChange="{{ onFilterAccount }}" style="color-scheme:dark;padding:8px 12px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#CBD5E1;font:500 12px 'Fira Sans';cursor:pointer">
+                  <option value="all">All accounts</option>
+                  <option value="freedom">Chase Freedom ••4321</option>
+                  <option value="amex">Amex Gold ••1009</option>
+                  <option value="checking">Chase Checking ••7745</option>
+                </select>
+                <select value="{{ filterCat }}" onChange="{{ onFilterCat }}" style="color-scheme:dark;padding:8px 12px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#CBD5E1;font:500 12px 'Fira Sans';cursor:pointer">
+                  <option value="all">All categories</option>
+                  <option value="groceries">Groceries</option>
+                  <option value="dining">Dining</option>
+                  <option value="transport">Transport</option>
+                  <option value="shopping">Shopping</option>
+                  <option value="subscriptions">Subscriptions</option>
+                  <option value="health">Health</option>
+                  <option value="entertainment">Entertainment</option>
+                  <option value="utilities">Utilities</option>
+                  <option value="travel">Travel</option>
+                  <option value="home">Home</option>
+                  <option value="income">Income</option>
+                  <option value="refund">Refund</option>
+                </select>
+                <select value="{{ filterMonth }}" onChange="{{ onFilterMonth }}" style="color-scheme:dark;padding:8px 12px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#CBD5E1;font:500 12px 'Fira Sans';cursor:pointer">
+                  <option value="all">All months</option>
+                  <option value="2026-07">July 2026</option>
+                  <option value="2026-06">June 2026</option>
+                  <option value="2026-05">May 2026</option>
+                </select>
+              </div>
+              <sc-if value="{{ hasChips }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px">
+                  <span style="font:500 11px 'Fira Sans';color:#475569">Filters</span>
+                  <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="2">
+                    <button onClick="{{ chip.onRemove }}" style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px 3px 10px;border:1px solid rgba(59,130,246,0.3);border-radius:999px;background:rgba(59,130,246,0.1);color:#93C5FD;font:500 12px 'Fira Sans';cursor:pointer" style-hover="background:rgba(59,130,246,0.18)">{{ chip.label }}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                  </sc-for>
+                  <button onClick="{{ clearFilters }}" style="border:0;background:transparent;color:#64748B;font:500 12px 'Fira Sans';cursor:pointer;padding:3px 4px" style-hover="color:#CBD5E1">Clear all</button>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="padding:14px 30px 40px;max-width:1180px">
+              <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:14px;padding:9px 14px;margin-bottom:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.28);border-radius:10px;animation:fadein .13s ease-out">
+                  <span style="font:600 13px 'Fira Sans';color:#93C5FD"><span style="font-family:'Fira Code'">{{ selCount }}</span> selected</span>
+                  <button onClick="{{ bulkRecat }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:0;border-radius:7px;background:#3B82F6;color:#fff;font:600 12px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Recategorize</button>
+                  <div style="flex:1"></div>
+                  <button onClick="{{ clearSel }}" style="border:0;background:transparent;color:#64748B;font:500 12px 'Fira Sans';cursor:pointer" style-hover="color:#CBD5E1">Clear selection</button>
+                </div>
+              </sc-if>
+
+              <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;background:#101A34">
+                <div style="display:flex;align-items:center;padding:0 16px;height:38px;border-bottom:1px solid rgba(255,255,255,0.08);background:#0D1730;font:600 10.5px 'Fira Sans';color:#64748B;text-transform:uppercase;letter-spacing:0.06em">
+                  <div style="width:34px;flex:none;display:flex"><input type="checkbox" checked="{{ allSelected }}" onChange="{{ selectAll }}" aria-label="Select all" style="width:15px;height:15px;accent-color:#3B82F6;cursor:pointer"/></div>
+                  <div style="width:92px;flex:none">Date</div>
+                  <div style="flex:1;min-width:0">Payee</div>
+                  <div style="width:158px;flex:none">Category</div>
+                  <div style="width:100px;flex:none">Account</div>
+                  <div style="width:116px;flex:none;text-align:right">Amount</div>
+                </div>
+                <div style="max-height:560px;overflow-y:auto">
+                  <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+                    <sc-for list="{{ filteredRows }}" as="r" hint-placeholder-count="12">
+                      <div data-row-index="{{ r.fi }}" style="display:flex;align-items:center;padding:0 16px;height:42px;border-bottom:1px solid rgba(255,255,255,0.045);border-left:3px solid {{ r.leftBorder }};background:{{ r.rowBg }};transition:background .12s" style-hover="background:rgba(255,255,255,0.035)">
+                        <div style="width:34px;flex:none;display:flex"><input type="checkbox" checked="{{ r.selected }}" onChange="{{ r.onToggle }}" aria-label="Select row" style="width:15px;height:15px;accent-color:#3B82F6;cursor:pointer"/></div>
+                        <div style="width:92px;flex:none;font:500 12px 'Fira Code';color:#94A3B8">{{ r.dateShort }}</div>
+                        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px">
+                          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:{{ r.payeeColor }}">{{ r.payee }}</span>
+                          <span title="{{ r.sourceTitle }}" style="display:flex;color:#475569;flex:none;cursor:default">
+                            <sc-if value="{{ r.isCsv }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></sc-if>
+                            <sc-if value="{{ r.isSync }}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></sc-if>
+                          </span>
+                          <sc-if value="{{ r.pending }}" hint-placeholder-val="{{ false }}"><span style="font:600 9.5px 'Fira Sans';letter-spacing:0.05em;text-transform:uppercase;color:#D97706;border:1px solid rgba(217,119,6,0.35);border-radius:4px;padding:1px 5px;flex:none">Pending</span></sc-if>
+                          <sc-if value="{{ r.unexpected }}" hint-placeholder-val="{{ false }}"><span title="Unexpected / one-off spend" style="font:600 9px 'Fira Sans';letter-spacing:0.05em;text-transform:uppercase;color:#94A3B8;background:rgba(255,255,255,0.06);border-radius:4px;padding:2px 6px;flex:none">One-off</span></sc-if>
+                        </div>
+                        <div style="width:158px;flex:none">
+                          <button data-cat-btn="{{ r.fi }}" onClick="{{ r.onCat }}" style="display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:4px 8px;border:1px solid rgba(255,255,255,0.09);border-radius:7px;background:transparent;color:#CBD5E1;font:500 12px 'Fira Sans';cursor:pointer;transition:all .12s" style-hover="border-color:rgba(59,130,246,0.55);background:rgba(59,130,246,0.09);color:#fff">
+                            <span style="width:8px;height:8px;border-radius:2px;flex:none;background:{{ r.catColor }}"></span>
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.catLabel }}</span>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;flex:none;margin-left:auto"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                          </button>
+                        </div>
+                        <div style="width:100px;flex:none;font:500 12px 'Fira Code';color:#94A3B8">••{{ r.mask }}</div>
+                        <div style="width:116px;flex:none;font:500 13px 'Fira Code';text-align:right;color:{{ r.amtColor }}">{{ r.amt }}</div>
+                      </div>
+                    </sc-for>
+                  </sc-if>
+                  <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:56px 20px">
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:14px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                      <div style="font-weight:600;font-size:14px;margin-bottom:6px">No transactions match</div>
+                      <div style="font-size:12.5px;color:#94A3B8;margin-bottom:18px">Try widening your filters or clearing the search.</div>
+                      <button onClick="{{ clearFilters }}" style="padding:8px 16px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12px 'Fira Sans';cursor:pointer" style-hover="background:rgba(255,255,255,0.05)">Clear all filters</button>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="margin-top:12px;font:500 12px 'Fira Sans';color:#475569"><span style="font-family:'Fira Code';color:#94A3B8">{{ filteredCount }}</span> · use ↑ ↓ to move, Enter to recategorize</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:18px 30px 40px;max-width:1180px">
+              <div style="display:flex;gap:10px;margin-bottom:16px">
+                <div style="width:280px;height:36px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:8px"></div>
+                <div style="width:150px;height:36px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:8px"></div>
+                <div style="width:150px;height:36px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:8px"></div>
+              </div>
+              <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;background:#101A34">
+                <sc-for list="{{ skel12 }}" as="s" hint-placeholder-count="12"><div style="display:flex;align-items:center;gap:16px;padding:0 16px;height:42px;border-bottom:1px solid rgba(255,255,255,0.045)"><div style="width:70px;height:12px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="flex:1;height:12px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="width:120px;height:20px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div><div style="width:80px;height:12px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div></div></sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:#101A34;border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">No transactions yet</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:330px;line-height:1.55;margin-bottom:26px">Once you import a statement or connect a bank, every transaction lands here.</div>
+              <button onClick="{{ goImport }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Import transactions</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeError }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">Couldn't load transactions</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:380px;line-height:1.55;margin-bottom:26px">The local database at <span style="font-family:'Fira Code';color:#CBD5E1">~/whatsleft.db</span> didn't respond. It may be open in another window.</div>
+              <button onClick="{{ setModeData }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Retry</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+      <sc-if value="{{ isAccounts }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Accounts">
+
+          <sc-if value="{{ modeData }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:24px 30px 44px;max-width:1080px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+                <div>
+                  <div style="font-weight:600;font-size:15px">Connected accounts</div>
+                  <div style="font:500 11px 'Fira Sans';color:#64748B;margin-top:3px">Balances and sync status across your banks</div>
+                </div>
+                <button style="display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12.5px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add account</button>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <sc-for list="{{ accountCards }}" as="a" hint-placeholder-count="4">
+                  <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px">
+                    <div style="display:flex;align-items:flex-start;gap:12px">
+                      <div style="width:38px;height:38px;border-radius:9px;background:#1E293B;border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font:700 15px 'Fira Sans';color:#CBD5E1;flex:none">{{ a.mono }}</div>
+                      <div style="flex:1;min-width:0">
+                        <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.inst }} {{ a.name }}</div>
+                        <div style="font:500 12px 'Fira Code';color:#64748B;margin-top:2px">••{{ a.mask }} · {{ a.type }}</div>
+                      </div>
+                      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:{{ a.pillBg }};color:{{ a.pillFg }};font:600 11px 'Fira Sans';flex:none">
+                        <span style="width:7px;height:7px;border-radius:999px;background:{{ a.dot }}"></span>{{ a.statusLabel }}
+                      </span>
+                    </div>
+                    <div style="margin-top:16px;display:flex;align-items:flex-end;justify-content:space-between">
+                      <div>
+                        <div style="font:500 10.5px 'Fira Sans';letter-spacing:0.05em;text-transform:uppercase;color:#64748B;margin-bottom:5px">{{ a.balanceLabel }}</div>
+                        <div style="font:600 24px 'Fira Code';letter-spacing:-0.01em">{{ a.balance }}</div>
+                      </div>
+                      <div style="display:inline-flex;align-items:center;gap:6px;font:500 11.5px 'Fira Sans';color:#64748B">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>{{ a.synced }}
+                      </div>
+                    </div>
+                    <sc-if value="{{ a.isAmber }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:16px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.07)">
+                        <div style="font-size:12.5px;line-height:1.5;color:#FCD34D;margin-bottom:12px">{{ a.help }}</div>
+                        <button onClick="{{ a.onReconnect }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 12.5px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Reconnect</button>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ a.isError }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:16px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.07)">
+                        <div style="font-size:12.5px;line-height:1.5;color:#F87171;margin-bottom:12px">{{ a.help }}</div>
+                        <button onClick="{{ a.onReconnect }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border:1px solid rgba(220,38,38,0.4);border-radius:8px;background:rgba(220,38,38,0.1);color:#F87171;font:600 12.5px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(220,38,38,0.18)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"/><path d="M12 2v4"/><path d="m2 2 20 20"/></svg>Fix connection</button>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ a.canLink }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:16px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.07)">
+                        <div style="font-size:12.5px;line-height:1.5;color:#94A3B8;margin-bottom:12px">Imported from a CSV file. Link it to a live connection to keep it syncing automatically.</div>
+                        <button onClick="{{ a.onLink }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12.5px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Link imported history…</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="margin-top:20px;font:500 12px 'Fira Sans';color:#475569">Bank connections used: <span style="font-family:'Fira Code';color:#94A3B8">2 of 100</span> (lifetime)</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 30px 44px;max-width:1080px">
+              <div style="width:180px;height:14px;margin-bottom:22px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <sc-for list="{{ skel4 }}" as="s" hint-placeholder-count="4"><div style="height:160px;background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px"><div style="display:flex;gap:12px;margin-bottom:20px"><div style="width:38px;height:38px;border-radius:9px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite"></div><div style="flex:1"><div style="width:60%;height:12px;margin-bottom:8px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="width:40%;height:10px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div></div></div><div style="width:120px;height:26px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div></div></sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:#101A34;border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">No accounts connected</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:340px;line-height:1.55;margin-bottom:26px">Connect Chase or Amex to pull transactions automatically, or import a CSV to get started.</div>
+              <div style="display:flex;gap:10px">
+                <button style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add account</button>
+                <button onClick="{{ goImport }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)">Import a CSV</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeError }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">Couldn't reach the account service</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:380px;line-height:1.55;margin-bottom:26px">The local sync engine isn't running. Restart the app, or check Settings → Local AI for connection details.</div>
+              <div style="display:flex;gap:10px">
+                <button onClick="{{ setModeData }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Retry</button>
+                <button onClick="{{ goSettings }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)">Open settings</button>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+      <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Import">
+
+          <sc-if value="{{ modeData }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:26px 30px 44px;max-width:620px;margin:0 auto">
+              <sc-if value="{{ importDone }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 20px">
+                  <div style="width:56px;height:56px;border-radius:16px;background:rgba(5,150,105,0.14);border:1px solid rgba(5,150,105,0.35);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                  <div style="font-weight:600;font-size:18px;margin-bottom:9px">Imported 38 transactions</div>
+                  <div style="font-size:13px;color:#94A3B8;max-width:360px;line-height:1.55;margin-bottom:24px">Added to <span style="font-family:'Fira Code';color:#CBD5E1">{{ importTargetName }} ••{{ importTargetMask }}</span>. 104 already-known rows were skipped.</div>
+                  <div style="display:flex;gap:10px">
+                    <button onClick="{{ goTransactions }}" style="padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB">View transactions</button>
+                    <button onClick="{{ resetImport }}" style="padding:10px 18px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 13px 'Fira Sans';cursor:pointer" style-hover="background:rgba(255,255,255,0.05)">Import another file</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ importNotDone }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:0;margin-bottom:28px">
+                  <sc-for list="{{ importNodes }}" as="nd" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:10px;flex:none">
+                      <div style="width:28px;height:28px;border-radius:999px;background:{{ nd.circleBg }};border:1.5px solid {{ nd.circleBorder }};display:flex;align-items:center;justify-content:center;font:600 12px 'Fira Code';color:{{ nd.numColor }}">
+                        <sc-if value="{{ nd.done }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if>
+                        <sc-if value="{{ nd.notDone }}" hint-placeholder-val="{{ true }}">{{ nd.n }}</sc-if>
+                      </div>
+                      <span style="font:600 12.5px 'Fira Sans';color:{{ nd.labelColor }}">{{ nd.label }}</span>
+                    </div>
+                    <sc-if value="{{ nd.connector }}" hint-placeholder-val="{{ true }}"><div style="flex:1;height:1.5px;background:rgba(255,255,255,0.1);margin:0 12px;min-width:20px"></div></sc-if>
+                  </sc-for>
+                </div>
+
+                <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden">
+                  <sc-if value="{{ importStep1 }}" hint-placeholder-val="{{ true }}">
+                    <div style="padding:22px">
+                      <div style="font-weight:600;font-size:15px;margin-bottom:4px">Detected file</div>
+                      <div style="font:500 12px 'Fira Sans';color:#64748B;margin-bottom:18px">We read the file's headers to identify its format — no import happens yet.</div>
+                      <div style="display:flex;align-items:center;gap:14px;padding:16px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:#0B1428">
+                        <div style="width:42px;height:42px;border-radius:9px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;flex:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
+                        <div style="flex:1;min-width:0">
+                          <div style="font:500 13px 'Fira Code';color:#E2E8F0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Chase_activity_2026-06.csv</div>
+                          <div style="display:inline-flex;align-items:center;gap:7px;margin-top:5px;font:500 12px 'Fira Sans';color:#34D399"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Chase credit card CSV · <span style="font-family:'Fira Code'">142 rows</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ importStep2 }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:22px">
+                      <div style="font-weight:600;font-size:15px;margin-bottom:4px">Which account is this?</div>
+                      <div style="font:500 12px 'Fira Sans';color:#64748B;margin-bottom:18px">Required — pick the account these transactions belong to. We won't guess for you.</div>
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <sc-for list="{{ importAccts }}" as="ia" hint-placeholder-count="3">
+                          <button onClick="{{ ia.onPick }}" style="display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border:1.5px solid {{ ia.ring }};border-radius:10px;background:{{ ia.bg }};cursor:pointer;text-align:left;transition:all .13s" style-hover="border-color:rgba(59,130,246,0.5)">
+                            <span style="width:16px;height:16px;border-radius:999px;border:1.5px solid {{ ia.ring }};display:flex;align-items:center;justify-content:center;flex:none"><sc-if value="{{ ia.selected }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;border-radius:999px;background:#3B82F6"></span></sc-if></span>
+                            <div style="flex:1"><div style="font:600 13px 'Fira Sans';color:#E2E8F0">{{ ia.label }}</div><div style="font:500 11px 'Fira Code';color:#64748B;margin-top:2px">••{{ ia.mask }}</div></div>
+                            <sc-if value="{{ ia.suggested }}" hint-placeholder-val="{{ true }}"><span style="font:600 10px 'Fira Sans';letter-spacing:0.04em;text-transform:uppercase;color:#60A5FA;background:rgba(59,130,246,0.12);border-radius:5px;padding:3px 7px;flex:none">Matches filename</span></sc-if>
+                          </button>
+                        </sc-for>
+                        <button style="display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;border:1.5px dashed rgba(255,255,255,0.14);border-radius:10px;background:transparent;color:#94A3B8;cursor:pointer;font:600 13px 'Fira Sans';text-align:left;transition:all .13s" style-hover="border-color:rgba(255,255,255,0.28);color:#E2E8F0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Create a new account</button>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ importStep3 }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:22px">
+                      <div style="font-weight:600;font-size:15px;margin-bottom:4px">Review before importing</div>
+                      <div style="font:500 12px 'Fira Sans';color:#64748B;margin-bottom:18px">This is a dry run. Nothing is written until you confirm.</div>
+                      <div style="display:flex;gap:10px;margin-bottom:16px">
+                        <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:#0B1428;text-align:center"><div style="font:700 26px 'Fira Code';color:#34D399">38</div><div style="font:500 11px 'Fira Sans';color:#94A3B8;margin-top:3px">new</div></div>
+                        <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:#0B1428;text-align:center"><div style="font:700 26px 'Fira Code';color:#94A3B8">104</div><div style="font:500 11px 'Fira Sans';color:#94A3B8;margin-top:3px">already known</div></div>
+                        <div style="flex:1;padding:14px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:#0B1428;text-align:center"><div style="font:700 26px 'Fira Code';color:#94A3B8">0</div><div style="font:500 11px 'Fira Sans';color:#94A3B8;margin-top:3px">need review</div></div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:9px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);margin-bottom:14px;font-size:12.5px;color:#CBD5E1">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        <span><span style="font-family:'Fira Code';color:#fff">38</span> new transactions → <span style="font-family:'Fira Code';color:#fff">{{ importTargetName }} ••{{ importTargetMask }}</span></span>
+                      </div>
+                      <div style="display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border-radius:9px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.22);font-size:12.5px;line-height:1.5;color:#FCD34D">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                        <span>2 rows are dated in May and fall outside this file's range — they'll be imported anyway.</span>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.02)">
+                    <button onClick="{{ goDashboard }}" style="padding:9px 15px;border:0;background:transparent;color:#64748B;font:600 12.5px 'Fira Sans';cursor:pointer" style-hover="color:#CBD5E1">Cancel</button>
+                    <div style="flex:1"></div>
+                    <sc-if value="{{ importCanBack }}" hint-placeholder-val="{{ false }}"><button onClick="{{ importBack }}" style="padding:9px 15px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12.5px 'Fira Sans';cursor:pointer" style-hover="background:rgba(255,255,255,0.05)">Back</button></sc-if>
+                    <sc-if value="{{ importShowNext }}" hint-placeholder-val="{{ true }}"><button onClick="{{ importNext }}" style="display:inline-flex;align-items:center;gap:7px;padding:9px 17px;border:0;border-radius:8px;background:{{ importNextBg }};color:{{ importNextFg }};font:600 12.5px 'Fira Sans';cursor:{{ importNextCursor }}">Continue<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button></sc-if>
+                    <sc-if value="{{ importShowImport }}" hint-placeholder-val="{{ false }}"><button onClick="{{ doImport }}" style="display:inline-flex;align-items:center;gap:7px;padding:9px 17px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 12.5px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Import 38 transactions</button></sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:34px;height:34px;border-radius:999px;border:3px solid rgba(255,255,255,0.1);border-top-color:#3B82F6;animation:spin .8s linear infinite;margin-bottom:22px"></div>
+              <div style="font-weight:600;font-size:15px;margin-bottom:8px">Reading your file…</div>
+              <div style="font-size:13px;color:#94A3B8;font-family:'Fira Code'">Chase_activity_2026-06.csv · 142 rows</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:40px 30px;max-width:620px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:480px">
+              <div style="width:100%;border:2px dashed rgba(255,255,255,0.14);border-radius:16px;padding:48px 30px;text-align:center;background:#0D1730">
+                <div style="width:54px;height:54px;border-radius:14px;background:#101A34;border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 20px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></div>
+                <div style="font-weight:600;font-size:16px;margin-bottom:8px">Drop a CSV to import</div>
+                <div style="font-size:13px;color:#94A3B8;max-width:340px;margin:0 auto 22px;line-height:1.55">Drag a statement here, or browse. We recognize Chase and Amex CSV exports automatically.</div>
+                <button style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB">Browse files</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeError }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9.5 12.5 5 5"/><path d="m14.5 12.5-5 5"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">We couldn't read that file</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:400px;line-height:1.55;margin-bottom:26px"><span style="font-family:'Fira Code';color:#CBD5E1">statement.pdf</span> isn't a CSV. Export your statement as CSV from your bank's website, then try again.</div>
+              <button onClick="{{ setModeEmpty }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB">Choose a different file</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+      <sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Review">
+
+          <sc-if value="{{ modeData }}" hint-placeholder-val="{{ true }}">
+            <sc-if value="{{ hasReview }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:24px 30px 44px;max-width:1000px">
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+                  <div>
+                    <div style="font-weight:600;font-size:15px">Needs your review</div>
+                    <div style="font:500 12px 'Fira Sans';color:#64748B;margin-top:3px"><span style="font-family:'Fira Code'">{{ reviewCountN }}</span> transactions the local model wasn't sure how to categorize · use ↑ ↓ and Enter</div>
+                  </div>
+                  <sc-if value="{{ hasLikely }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ acceptAllLikely }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12.5px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Accept all likely (<span style="font-family:'Fira Code'">{{ likelyCount }}</span>)</button>
+                  </sc-if>
+                </div>
+
+                <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;background:#101A34">
+                  <sc-for list="{{ reviewItems }}" as="it" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:16px;padding:13px 18px;border-bottom:1px solid rgba(255,255,255,0.05);background:{{ it.rowBg }};transition:background .12s">
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.payee }}</div>
+                        <div style="font:500 11px 'Fira Code';color:#64748B;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.raw }} · {{ it.dateShort }} · ••{{ it.mask }}</div>
+                      </div>
+                      <div style="width:88px;flex:none;font:600 14px 'Fira Code';text-align:right">{{ it.amount }}</div>
+                      <div style="width:178px;flex:none;display:flex;flex-direction:column;gap:6px">
+                        <span style="display:inline-flex;align-items:center;gap:7px;font:500 12.5px 'Fira Sans';color:#CBD5E1"><span style="width:8px;height:8px;border-radius:2px;flex:none;background:{{ it.catColor }}"></span>{{ it.catLabel }}</span>
+                        <div style="display:flex;align-items:center;gap:7px"><span style="font:600 9px 'Fira Sans';letter-spacing:0.06em;text-transform:uppercase;color:#475569">Suggested</span><span style="font:600 10px 'Fira Sans';color:{{ it.confColor }};background:{{ it.confBg }};border-radius:5px;padding:2px 7px">{{ it.confWord }}</span></div>
+                      </div>
+                      <div style="display:flex;gap:8px;flex:none">
+                        <button onClick="{{ it.onPick }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:transparent;color:#94A3B8;font:600 12px 'Fira Sans';cursor:pointer;transition:all .13s" style-hover="color:#fff;border-color:rgba(255,255,255,0.24)">Change</button>
+                        <button onClick="{{ it.onAccept }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid rgba(5,150,105,0.4);border-radius:8px;background:rgba(5,150,105,0.12);color:#34D399;font:600 12px 'Fira Sans';cursor:pointer;transition:background .13s" style-hover="background:rgba(5,150,105,0.2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Accept</button>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noReview }}" hint-placeholder-val="{{ false }}">
+              <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+                <div style="width:56px;height:56px;border-radius:16px;background:rgba(5,150,105,0.13);border:1px solid rgba(5,150,105,0.32);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div style="font-weight:600;font-size:18px;margin-bottom:9px">All caught up</div>
+                <div style="font-size:13px;color:#94A3B8;max-width:320px;line-height:1.55">Every transaction is categorized. New uncertain ones will show up here after the next sync.</div>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ modeLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 30px 44px;max-width:1000px">
+              <div style="width:200px;height:14px;margin-bottom:20px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div>
+              <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;background:#101A34">
+                <sc-for list="{{ skel8 }}" as="s" hint-placeholder-count="6"><div style="display:flex;align-items:center;gap:16px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.05)"><div style="flex:1"><div style="width:40%;height:12px;margin-bottom:7px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="width:60%;height:10px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div></div><div style="width:120px;height:20px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:6px"></div><div style="width:150px;height:30px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:8px"></div></div></sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:56px;height:56px;border-radius:16px;background:rgba(5,150,105,0.13);border:1px solid rgba(5,150,105,0.32);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+              <div style="font-weight:600;font-size:18px;margin-bottom:9px">All caught up</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:320px;line-height:1.55">Every transaction is categorized. New uncertain ones will show up here after the next sync.</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeError }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">The local model isn't responding</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:400px;line-height:1.55;margin-bottom:26px">Categorization suggestions need the local AI endpoint. Check that it's running in Settings → Local AI.</div>
+              <div style="display:flex;gap:10px">
+                <button onClick="{{ setModeData }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Retry</button>
+                <button onClick="{{ goSettings }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)">Open settings</button>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+      <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Settings">
+
+          <sc-if value="{{ modeDataOrEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:24px 30px 44px;max-width:720px">
+
+              <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:4px 20px;margin-bottom:16px">
+                <div style="padding:14px 0 12px;font-weight:600;font-size:13px">Sync</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div><div style="font-size:13px;color:#E2E8F0">Sync interval</div><div style="font:500 11.5px 'Fira Sans';color:#64748B;margin-top:2px">How often to pull new transactions</div></div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <sc-if value="{{ savedSync }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;font:600 11px 'Fira Sans';color:#34D399"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Saved</span></sc-if>
+                    <select value="{{ settings.syncInterval }}" onChange="{{ setSyncInterval }}" style="color-scheme:dark;width:190px;padding:8px 12px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#E2E8F0;font:500 12.5px 'Fira Sans';cursor:pointer">
+                      <option value="15m">Every 15 minutes</option>
+                      <option value="1h">Hourly</option>
+                      <option value="manual">Manual only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:4px 20px;margin-bottom:16px">
+                <div style="padding:14px 0 12px;font-weight:600;font-size:13px">Local AI</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div><div style="font-size:13px;color:#E2E8F0">Endpoint</div><div style="font:500 11.5px 'Fira Sans';color:#64748B;margin-top:2px">Local model server URL</div></div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <sc-if value="{{ savedEndpoint }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;font:600 11px 'Fira Sans';color:#34D399"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Saved</span></sc-if>
+                    <input value="{{ settings.aiEndpoint }}" onInput="{{ setAiEndpoint }}" style="width:240px;padding:8px 12px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#E2E8F0;font:500 12.5px 'Fira Code'"/>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div><div style="font-size:13px;color:#E2E8F0">Model</div><div style="font:500 11.5px 'Fira Sans';color:#64748B;margin-top:2px">Used to categorize transactions</div></div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <sc-if value="{{ savedModel }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;font:600 11px 'Fira Sans';color:#34D399"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Saved</span></sc-if>
+                    <input value="{{ settings.aiModel }}" onInput="{{ setAiModel }}" style="width:240px;padding:8px 12px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#E2E8F0;font:500 12.5px 'Fira Code'"/>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div><div style="font-size:13px;color:#E2E8F0">Connection</div><div style="font:500 11.5px 'Fira Sans';color:#64748B;margin-top:2px">Verify the model is reachable</div></div>
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <sc-if value="{{ testOk }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;font:500 12px 'Fira Sans';color:#34D399"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Connected · <span style="font-family:'Fira Code'">142 ms</span></span></sc-if>
+                    <sc-if value="{{ testTesting }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:7px;font:500 12px 'Fira Sans';color:#94A3B8"><span style="width:13px;height:13px;border-radius:999px;border:2px solid rgba(255,255,255,0.15);border-top-color:#3B82F6;animation:spin .8s linear infinite"></span>Testing…</span></sc-if>
+                    <button onClick="{{ testConnection }}" style="padding:8px 14px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)">Test connection</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:4px 20px;margin-bottom:16px">
+                <div style="padding:14px 0 12px;font-weight:600;font-size:13px">Data</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div><div style="font-size:13px;color:#E2E8F0">Export all data</div><div style="font:500 11.5px 'Fira Sans';color:#64748B;margin-top:2px">Download every transaction as JSON</div></div>
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <sc-if value="{{ exportDone }}" hint-placeholder-val="{{ false }}"><span style="font:500 11.5px 'Fira Code';color:#34D399">→ ~/Downloads</span></sc-if>
+                    <sc-if value="{{ exportWorking }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:7px;font:500 12px 'Fira Sans';color:#94A3B8"><span style="width:13px;height:13px;border-radius:999px;border:2px solid rgba(255,255,255,0.15);border-top-color:#3B82F6;animation:spin .8s linear infinite"></span>Preparing…</span></sc-if>
+                    <button onClick="{{ exportData }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export</button>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div><div style="font-size:13px;color:#E2E8F0">Database location</div><div style="font:500 11px 'Fira Code';color:#64748B;margin-top:4px">~/Library/Application Support/WhatsLeft/db.sqlite</div></div>
+                  <button style="padding:8px 14px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12px 'Fira Sans';cursor:pointer;flex:none;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)">Reveal</button>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px">
+                <span style="font:500 12px 'Fira Sans';color:#475569">What's Left · v0.4.2</span>
+                <span style="display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);font:600 11px 'Fira Sans';color:#94A3B8"><span style="width:6px;height:6px;border-radius:999px;background:#8FA07E"></span>Local · development build</span>
+              </div>
+
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 30px 44px;max-width:720px">
+              <sc-for list="{{ skel4 }}" as="s" hint-placeholder-count="3"><div style="height:120px;margin-bottom:16px;background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px"><div style="width:80px;height:12px;margin-bottom:20px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="display:flex;justify-content:space-between"><div style="width:140px;height:12px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="width:180px;height:32px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:8px"></div></div></div></sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ modeError }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">Couldn't load settings</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:390px;line-height:1.55;margin-bottom:26px">The settings file couldn't be read. Your preferences are safe — restart the app to try again.</div>
+              <button onClick="{{ setModeData }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Retry</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+      <sc-if value="{{ isGoals }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Goals">
+          <sc-if value="{{ modeDataOrEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:24px 30px 44px;max-width:840px">
+              <div style="font-size:13px;color:#94A3B8;line-height:1.55;margin-bottom:22px;max-width:600px">Targets, not budgets — What's Left won't nag you. <span style="color:#CBD5E1">Saved = money in − money out.</span> Adjust a goal whenever it stops fitting.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+                <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 22px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px"><div style="font-weight:600;font-size:14px">This month</div><span style="font:500 11px 'Fira Sans';color:#64748B">June 2026</span></div>
+                  <div style="font:500 10.5px 'Fira Sans';letter-spacing:0.05em;text-transform:uppercase;color:#64748B;margin-bottom:7px">Saved so far</div>
+                  <div style="font:700 30px 'Fira Code';letter-spacing:-0.01em;color:{{ gv.monthlySavedColor }};margin-bottom:18px">{{ gv.monthlySaved }}</div>
+                  <div style="height:8px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden;margin-bottom:11px"><div style="height:100%;width:{{ gv.monthlyPct }};background:{{ gv.monthlyBarColor }};border-radius:999px;transition:width .2s ease-in-out"></div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <sc-if value="{{ gv.monthlyReached }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font:600 12px 'Fira Sans';color:#34D399"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Goal reached</span></sc-if>
+                    <sc-if value="{{ gv.monthlyNotReached }}" hint-placeholder-val="{{ true }}"><span style="font:500 12px 'Fira Sans';color:#94A3B8"><span style="font-family:'Fira Code'">{{ gv.monthlyRemain }}</span> to go</span></sc-if>
+                    <span style="font:600 12px 'Fira Code';color:#475569">{{ gv.monthlyPct }}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.07)">
+                    <span style="font:500 12px 'Fira Sans';color:#94A3B8">Monthly goal</span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <button onClick="{{ gv.decMonthly }}" aria-label="Lower monthly goal" style="display:flex;padding:6px;border:1px solid rgba(255,255,255,0.12);border-radius:7px;background:transparent;color:#CBD5E1;cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>
+                      <span style="font:600 14px 'Fira Code';min-width:76px;text-align:center">{{ gv.monthlyTarget }}</span>
+                      <button onClick="{{ gv.incMonthly }}" aria-label="Raise monthly goal" style="display:flex;padding:6px;border:1px solid rgba(255,255,255,0.12);border-radius:7px;background:transparent;color:#CBD5E1;cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 22px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px"><div style="font-weight:600;font-size:14px">This year</div><span style="font:500 11px 'Fira Sans';color:#64748B">Last 12 months</span></div>
+                  <div style="font:500 10.5px 'Fira Sans';letter-spacing:0.05em;text-transform:uppercase;color:#64748B;margin-bottom:7px">Saved so far</div>
+                  <div style="font:700 30px 'Fira Code';letter-spacing:-0.01em;color:{{ gv.yearlySavedColor }};margin-bottom:18px">{{ gv.yearlySaved }}</div>
+                  <div style="height:8px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden;margin-bottom:11px"><div style="height:100%;width:{{ gv.yearlyPct }};background:{{ gv.yearlyBarColor }};border-radius:999px;transition:width .2s ease-in-out"></div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <sc-if value="{{ gv.yearlyReached }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font:600 12px 'Fira Sans';color:#34D399"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Goal reached</span></sc-if>
+                    <sc-if value="{{ gv.yearlyNotReached }}" hint-placeholder-val="{{ true }}"><span style="font:500 12px 'Fira Sans';color:#94A3B8"><span style="font-family:'Fira Code'">{{ gv.yearlyRemain }}</span> to go</span></sc-if>
+                    <span style="font:600 12px 'Fira Code';color:#475569">{{ gv.yearlyPct }}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.07)">
+                    <span style="font:500 12px 'Fira Sans';color:#94A3B8">Yearly goal</span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <button onClick="{{ gv.decYearly }}" aria-label="Lower yearly goal" style="display:flex;padding:6px;border:1px solid rgba(255,255,255,0.12);border-radius:7px;background:transparent;color:#CBD5E1;cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>
+                      <span style="font:600 14px 'Fira Code';min-width:82px;text-align:center">{{ gv.yearlyTarget }}</span>
+                      <button onClick="{{ gv.incYearly }}" aria-label="Raise yearly goal" style="display:flex;padding:6px;border:1px solid rgba(255,255,255,0.12);border-radius:7px;background:transparent;color:#CBD5E1;cursor:pointer;transition:background .15s" style-hover="background:rgba(255,255,255,0.05)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:13px 15px;border-radius:10px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.16);font-size:12.5px;line-height:1.5;color:#94A3B8">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span>Personal targets only — nothing is enforced and no spending is ever blocked. Your surplus over the last 12 months is <span style="font-family:'Fira Code';color:#34D399">{{ annualValue }}</span>.</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ modeLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 30px;max-width:840px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div style="height:240px;background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px"></div><div style="height:240px;background:#101A34;border:1px solid rgba(255,255,255,0.08);border-radius:12px"></div></div></div>
+          </sc-if>
+          <sc-if value="{{ modeError }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px">
+              <div style="width:54px;height:54px;border-radius:14px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+              <div style="font-weight:600;font-size:17px;margin-bottom:9px">Couldn't calculate goals</div>
+              <div style="font-size:13px;color:#94A3B8;max-width:380px;line-height:1.55;margin-bottom:26px">Goal progress needs your transaction history, which didn't load. Retry once transactions are back.</div>
+              <button onClick="{{ setModeData }}" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>Retry</button>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isTokens }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Design tokens" style="padding:26px 30px 48px;max-width:1040px">
+
+          <div style="font:600 11px 'Fira Sans';letter-spacing:0.08em;text-transform:uppercase;color:#475569;margin-bottom:14px">Palette</div>
+
+          <div style="font:500 12px 'Fira Sans';color:#94A3B8;margin-bottom:10px">Surfaces</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+            <sc-for list="{{ tkSurfaces }}" as="c" hint-placeholder-count="3">
+              <div style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden">
+                <div style="height:56px;background:{{ c.sw }};border-bottom:1px solid rgba(255,255,255,0.08)"></div>
+                <div style="padding:10px 12px"><div style="font:500 12.5px 'Fira Sans'">{{ c.name }}</div><div style="font:500 11px 'Fira Code';color:#64748B;margin-top:2px">{{ c.hex }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font:500 12px 'Fira Sans';color:#94A3B8;margin-bottom:10px">Text on dark · contrast ratio</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+            <sc-for list="{{ tkText }}" as="c" hint-placeholder-count="3">
+              <div style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 14px 12px;background:#101A34">
+                <div style="font:600 20px 'Fira Sans';color:{{ c.sw }};margin-bottom:12px">Aa</div>
+                <div style="display:flex;align-items:center;justify-content:space-between"><div style="font:500 12.5px 'Fira Sans'">{{ c.name }}</div><span style="font:600 9.5px 'Fira Sans';letter-spacing:0.04em;color:#34D399;background:rgba(5,150,105,0.14);border-radius:5px;padding:2px 6px">{{ c.grade }}</span></div>
+                <div style="font:500 11px 'Fira Code';color:#64748B;margin-top:3px">{{ c.hex }} · {{ c.ratio }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font:500 12px 'Fira Sans';color:#94A3B8;margin-bottom:10px">Semantic · meaning-carrying only</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+            <sc-for list="{{ tkSemantic }}" as="c" hint-placeholder-count="6">
+              <div style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;background:#101A34">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="width:22px;height:22px;border-radius:6px;flex:none;background:{{ c.hex }}"></span><span style="font:600 13px 'Fira Code';color:{{ c.text }}">{{ c.hex }}</span></div>
+                <div style="font:500 12.5px 'Fira Sans'">{{ c.name }}</div>
+                <div style="font:500 11px 'Fira Sans';color:#64748B;margin-top:3px">{{ c.use }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font:500 12px 'Fira Sans';color:#94A3B8;margin-bottom:10px">Chart categorical · colorblind-safe, never reuses semantic hues</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:36px">
+            <sc-for list="{{ tkChart }}" as="c" hint-placeholder-count="10">
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:999px"><span style="width:14px;height:14px;border-radius:4px;background:{{ c.sw }}"></span><span style="font:500 12px 'Fira Sans';color:#CBD5E1">{{ c.name }}</span></div>
+            </sc-for>
+          </div>
+
+          <div style="font:600 11px 'Fira Sans';letter-spacing:0.08em;text-transform:uppercase;color:#475569;margin-bottom:14px">Type · Fira Sans (UI) + Fira Code (money & dates)</div>
+          <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#101A34;padding:8px 22px;margin-bottom:36px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:20px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><div style="font-family:'Fira Code';font-weight:700;font-size:46px;line-height:1;letter-spacing:-0.02em">$2,667.95</div><div style="font:500 11px 'Fira Code';color:#64748B;text-align:right">Hero · Fira Code 700<br>clamp(2.5rem – 4rem)</div></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:20px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><div style="font-weight:600;font-size:15px">Where it went</div><div style="font:500 11px 'Fira Code';color:#64748B">Heading · 15 / 600</div></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:20px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><div style="font-size:13px;color:#E2E8F0">The quick brown fox categorizes every transaction.</div><div style="font:500 11px 'Fira Code';color:#64748B">Body · 13 / 400</div></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:20px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><div style="font:500 11px 'Fira Sans';letter-spacing:0.06em;text-transform:uppercase;color:#94A3B8">Spent in June</div><div style="font:500 11px 'Fira Code';color:#64748B">Caption · 11 / 500</div></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:20px;padding:16px 0"><div style="font:500 15px 'Fira Code'">−$1,284.55 &nbsp; +$3,200.00</div><div style="font:500 11px 'Fira Code';color:#64748B">Money · Fira Code, tabular, signed</div></div>
+          </div>
+
+          <div style="font:600 11px 'Fira Sans';letter-spacing:0.08em;text-transform:uppercase;color:#475569;margin-bottom:14px">Spacing · 4px base</div>
+          <div style="display:flex;align-items:flex-end;gap:16px;margin-bottom:36px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:4px;height:4px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">4</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:8px;height:8px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">8</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:12px;height:12px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">12</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:16px;height:16px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">16</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:20px;height:20px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">20</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:24px;height:24px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">24</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:32px;height:32px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">32</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:40px;height:40px;background:#3B82F6;border-radius:2px"></div><span style="font:500 10px 'Fira Code';color:#64748B">40</span></div>
+          </div>
+
+          <div style="font:600 11px 'Fira Sans';letter-spacing:0.08em;text-transform:uppercase;color:#475569;margin-bottom:14px">Component inventory</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#101A34;padding:18px">
+              <div style="font:500 11px 'Fira Sans';color:#64748B;margin-bottom:14px">Buttons</div>
+              <div style="display:flex;flex-wrap:wrap;gap:10px">
+                <span style="display:inline-flex;padding:9px 16px;border-radius:8px;background:#3B82F6;color:#fff;font:600 13px 'Fira Sans'">Primary</span>
+                <span style="display:inline-flex;padding:9px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.14);color:#E2E8F0;font:600 13px 'Fira Sans'">Secondary</span>
+                <span style="display:inline-flex;padding:9px 16px;border-radius:8px;border:1px solid rgba(220,38,38,0.4);background:rgba(220,38,38,0.1);color:#F87171;font:600 13px 'Fira Sans'">Danger</span>
+                <span style="display:inline-flex;padding:9px 12px;border-radius:8px;color:#94A3B8;font:600 13px 'Fira Sans'">Ghost</span>
+              </div>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#101A34;padding:18px">
+              <div style="font:500 11px 'Fira Sans';color:#64748B;margin-bottom:14px">Pills</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(5,150,105,0.13);color:#34D399;font:600 11px 'Fira Sans'"><span style="width:7px;height:7px;border-radius:999px;background:#059669"></span>Connected</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(217,119,6,0.13);color:#FBBF24;font:600 11px 'Fira Sans'"><span style="width:7px;height:7px;border-radius:999px;background:#D97706"></span>Reconnect</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(220,38,38,0.13);color:#F87171;font:600 11px 'Fira Sans'"><span style="width:7px;height:7px;border-radius:999px;background:#DC2626"></span>Error</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(217,119,6,0.13);color:#FBBF24;font:500 11px 'Fira Sans'">$42.00 pending</span>
+                <span style="display:inline-flex;align-items:center;gap:7px;padding:4px 8px;border:1px solid rgba(255,255,255,0.09);border-radius:7px;color:#CBD5E1;font:500 12px 'Fira Sans'"><span style="width:8px;height:8px;border-radius:2px;background:#4E9C99"></span>Dining</span>
+              </div>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#101A34;padding:18px">
+              <div style="font:500 11px 'Fira Sans';color:#64748B;margin-bottom:14px">Table row · pending variant</div>
+              <div style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden">
+                <div style="display:flex;align-items:center;gap:12px;padding:0 12px;height:40px;border-left:3px solid transparent"><span style="font:500 12px 'Fira Code';color:#94A3B8">Jun 29</span><span style="flex:1;font-size:13px">Whole Foods Market</span><span style="font:500 13px 'Fira Code'">−$112.34</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:0 12px;height:40px;border-top:1px solid rgba(255,255,255,0.05);border-left:3px solid #D97706;background:rgba(217,119,6,0.04)"><span style="font:500 12px 'Fira Code';color:#64748B">Jun 30</span><span style="flex:1;font-size:13px;color:#64748B">Blue Bottle</span><span style="font:500 13px 'Fira Code';color:#64748B">−$6.75</span></div>
+              </div>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#101A34;padding:18px">
+              <div style="font:500 11px 'Fira Sans';color:#64748B;margin-bottom:14px">Banner · attention</div>
+              <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid rgba(217,119,6,0.35);background:rgba(217,119,6,0.09);border-radius:10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span style="flex:1;font-size:12.5px;color:#FCD34D">Card payments don't match.</span><span style="font:600 11px 'Fira Sans';color:#FBBF24;border:1px solid rgba(251,191,36,0.4);border-radius:6px;padding:3px 9px">Review</span></div>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#101A34;padding:18px">
+              <div style="font:500 11px 'Fira Sans';color:#64748B;margin-bottom:14px">Skeleton · loading</div>
+              <div style="display:flex;flex-direction:column;gap:9px"><div style="height:14px;width:70%;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="height:14px;width:100%;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div><div style="height:14px;width:45%;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 37%,rgba(255,255,255,0.04) 63%);background-size:400px 100%;animation:sk 1.4s infinite;border-radius:5px"></div></div>
+            </div>
+            <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#101A34;padding:18px">
+              <div style="font:500 11px 'Fira Sans';color:#64748B;margin-bottom:14px">Card · surface + border</div>
+              <div style="background:#0B1428;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px"><div style="font:500 10.5px 'Fira Sans';text-transform:uppercase;letter-spacing:0.05em;color:#64748B;margin-bottom:6px">Balance owed</div><div style="font:600 22px 'Fira Code'">−$1,284.55</div></div>
+            </div>
+          </div>
+
+        </div>
+      </sc-if>
+
+    </div>
+  <sc-if value="{{ popover }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ popover.close }}" style="position:fixed;inset:0;z-index:40"></div>
+    <div style="position:fixed;left:{{ popover.left }};top:{{ popover.top }};z-index:41;width:266px;background:#0D1730;border:1px solid rgba(255,255,255,0.13);border-radius:12px;box-shadow:0 18px 48px rgba(0,0,0,0.55);animation:fadein .13s ease-out;overflow:hidden">
+      <div style="padding:12px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.07)">
+        <div style="font-weight:600;font-size:13px">{{ popover.title }}</div>
+        <sc-if value="{{ popover.showPayee }}" hint-placeholder-val="{{ false }}"><div style="font:500 11px 'Fira Sans';color:#64748B;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ popover.payee }}</div></sc-if>
+      </div>
+      <div style="padding:10px 12px 8px;position:relative">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:22px;top:19px;pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input value="{{ popover.query }}" onInput="{{ popover.onQuery }}" autoFocus="{{ true }}" placeholder="Find a category…" style="width:100%;padding:7px 10px 7px 32px;background:#0B1428;border:1px solid rgba(255,255,255,0.1);border-radius:7px;color:#fff;font:400 12.5px 'Fira Sans'"/>
+      </div>
+      <div style="max-height:194px;overflow-y:auto;padding:2px 8px 8px">
+        <sc-for list="{{ popover.cats }}" as="pc" hint-placeholder-count="6">
+          <button onClick="{{ pc.onPick }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 8px;border:0;border-radius:7px;background:{{ pc.bg }};color:{{ pc.fg }};font:500 12.5px 'Fira Sans';cursor:pointer;text-align:left;transition:background .1s" style-hover="background:rgba(255,255,255,0.06)">
+            <span style="width:9px;height:9px;border-radius:2px;flex:none;background:{{ pc.color }}"></span>
+            <span style="flex:1">{{ pc.label }}</span>
+            <sc-if value="{{ pc.selected }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if>
+          </button>
+        </sc-for>
+        <sc-if value="{{ popover.noMatch }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 8px;font-size:12px;color:#64748B;text-align:center">No category matches.</div></sc-if>
+      </div>
+      <sc-if value="{{ popover.showScope }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:11px 14px;border-top:1px solid rgba(255,255,255,0.07)">
+          <button onClick="{{ popover.setScopeOnce }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:5px 0;border:0;background:transparent;color:#E2E8F0;font:500 12.5px 'Fira Sans';cursor:pointer;text-align:left">
+            <span style="width:15px;height:15px;border-radius:999px;border:1.5px solid {{ popover.onceRing }};display:flex;align-items:center;justify-content:center;flex:none"><sc-if value="{{ popover.scopeOnce }}" hint-placeholder-val="{{ true }}"><span style="width:7px;height:7px;border-radius:999px;background:#3B82F6"></span></sc-if></span>
+            Only this transaction
+          </button>
+          <button onClick="{{ popover.setScopeAlways }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:5px 0;border:0;background:transparent;color:#E2E8F0;font:500 12.5px 'Fira Sans';cursor:pointer;text-align:left">
+            <span style="width:15px;height:15px;border-radius:999px;border:1.5px solid {{ popover.alwaysRing }};display:flex;align-items:center;justify-content:center;flex:none"><sc-if value="{{ popover.scopeAlways }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:999px;background:#3B82F6"></span></sc-if></span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Always for {{ popover.payeeQuoted }}</span>
+          </button>
+          <sc-if value="{{ popover.scopeAlways }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ popover.toggleAlsoPast }}" style="display:flex;align-items:center;gap:9px;width:100%;margin:6px 0 0 24px;padding:4px 0;border:0;background:transparent;color:#94A3B8;font:500 12px 'Fira Sans';cursor:pointer;text-align:left;width:calc(100% - 24px)">
+              <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ popover.pastRing }};background:{{ popover.pastFill }};display:flex;align-items:center;justify-content:center;flex:none"><sc-if value="{{ popover.alsoPast }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if></span>
+              Also update <span style="font-family:'Fira Code';margin:0 3px">{{ popover.pastCount }}</span> past transactions
+            </button>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ popover.showUnexpected }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ popover.toggleUnexpected }}" style="display:flex;align-items:center;gap:11px;width:100%;padding:11px 14px;border:0;border-top:1px solid rgba(255,255,255,0.07);background:transparent;cursor:pointer;text-align:left">
+          <span style="width:32px;height:18px;border-radius:999px;flex:none;position:relative;background:{{ popover.unexToggleBg }};transition:background .15s"><span style="position:absolute;top:2px;left:{{ popover.unexToggleX }};width:14px;height:14px;border-radius:999px;background:#fff;transition:left .15s"></span></span>
+          <span style="flex:1"><span style="display:block;font:500 12.5px 'Fira Sans';color:#E2E8F0">Unexpected / one-off</span><span style="display:block;font:500 11px 'Fira Sans';color:#64748B;margin-top:1px">Flag so it stands out this month</span></span>
+        </button>
+      </sc-if>
+      <div style="display:flex;gap:8px;padding:11px 14px;border-top:1px solid rgba(255,255,255,0.07)">
+        <button onClick="{{ popover.close }}" style="flex:1;padding:8px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12.5px 'Fira Sans';cursor:pointer" style-hover="background:rgba(255,255,255,0.05)">Cancel</button>
+        <button onClick="{{ popover.confirm }}" style="flex:1;padding:8px;border:0;border-radius:8px;background:{{ popover.confirmBg }};color:{{ popover.confirmFg }};font:600 12.5px 'Fira Sans';cursor:{{ popover.confirmCursor }}" style-hover="filter:brightness(1.08)">{{ popover.confirmLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ confirm }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ confirm.close }}" style="position:fixed;inset:0;z-index:50;background:rgba(3,7,18,0.6);display:flex;align-items:center;justify-content:center;padding:40px;animation:fadein .13s ease-out">
+      <div onClick="{{ stop }}" style="width:400px;max-width:100%;background:#0D1730;border:1px solid rgba(255,255,255,0.13);border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,0.6);overflow:hidden">
+        <div style="padding:20px 22px 16px">
+          <div style="font-weight:600;font-size:16px;margin-bottom:8px">{{ confirm.title }}</div>
+          <div style="font-size:13px;line-height:1.55;color:#94A3B8">{{ confirm.body }}</div>
+        </div>
+        <div style="display:flex;gap:10px;padding:14px 22px;border-top:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.02)">
+          <div style="flex:1"></div>
+          <button onClick="{{ confirm.close }}" style="padding:9px 16px;border:1px solid rgba(255,255,255,0.14);border-radius:8px;background:transparent;color:#E2E8F0;font:600 12.5px 'Fira Sans';cursor:pointer" style-hover="background:rgba(255,255,255,0.05)">Cancel</button>
+          <button onClick="{{ confirm.onConfirm }}" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:0;border-radius:8px;background:#3B82F6;color:#fff;font:600 12.5px 'Fira Sans';cursor:pointer;transition:background .15s" style-hover="background:#2563EB"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{{ confirm.confirmLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  CATS = {
+    groceries:{label:'Groceries',color:'#7C83C4'},
+    dining:{label:'Dining',color:'#4E9C99'},
+    transport:{label:'Transport',color:'#C57B96'},
+    shopping:{label:'Shopping',color:'#B39B57'},
+    subscriptions:{label:'Subscriptions',color:'#9E7FB0'},
+    health:{label:'Health',color:'#C08A63'},
+    entertainment:{label:'Entertainment',color:'#8FA07E'},
+    utilities:{label:'Utilities',color:'#8C8FA8'},
+    travel:{label:'Travel',color:'#B0788F'},
+    home:{label:'Home',color:'#6FA0A8'},
+    income:{label:'Income',color:'#059669'},
+    refund:{label:'Refund',color:'#059669'}
+  };
+  ACCT = {
+    freedom:{inst:'Chase',name:'Freedom Unlimited',mask:'4321'},
+    amex:{inst:'Amex',name:'Gold Card',mask:'1009'},
+    checking:{inst:'Chase',name:'Total Checking',mask:'7745'},
+    capone:{inst:'Capital One',name:'Quicksilver',mask:'2201'}
+  };
+  MONTHS = ['2026-05','2026-06','2026-07'];
+  MONTHNAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  TREND = [
+    {m:'Jul',spend:2410,income:3200},{m:'Aug',spend:2680,income:3200},{m:'Sep',spend:2190,income:3200},
+    {m:'Oct',spend:3050,income:3200},{m:'Nov',spend:2890,income:3400},{m:'Dec',spend:3720,income:3400},
+    {m:'Jan',spend:2260,income:3400},{m:'Feb',spend:2540,income:3400},{m:'Mar',spend:2980,income:3400},
+    {m:'Apr',spend:2720,income:3400},{m:'May',spend:1611,income:3200},{m:'Jun',spend:2668,income:3200}
+  ];
+  TXNS = [
+    {date:'2026-06-30',payee:'Blue Bottle Coffee',cat:'dining',acct:'amex',amount:-6.75,pending:true,source:'sync'},
+    {date:'2026-06-29',payee:'Amazon',cat:'shopping',acct:'freedom',amount:-35.25,pending:true,source:'sync'},
+    {date:'2026-06-29',payee:'Whole Foods Market',cat:'groceries',acct:'freedom',amount:-112.34,source:'sync'},
+    {date:'2026-06-28',payee:'Uber',cat:'transport',acct:'amex',amount:-18.40,source:'sync'},
+    {date:'2026-06-28',payee:'Netflix',cat:'subscriptions',acct:'freedom',amount:-15.49,source:'sync'},
+    {date:'2026-06-27',payee:'Chipotle',cat:'dining',acct:'amex',amount:-14.85,source:'sync'},
+    {date:'2026-06-27',payee:'Shell',cat:'transport',acct:'freedom',amount:-52.10,source:'sync'},
+    {date:'2026-06-26',payee:'Amazon',cat:'shopping',acct:'freedom',amount:-64.20,source:'sync'},
+    {date:'2026-06-26',payee:'Nordstrom',cat:'shopping',acct:'amex',amount:-142.00,source:'sync'},
+    {date:'2026-06-25',payee:"Trader Joe's",cat:'groceries',acct:'freedom',amount:-78.55,source:'sync'},
+    {date:'2026-06-25',payee:'Spotify',cat:'subscriptions',acct:'amex',amount:-11.99,source:'sync'},
+    {date:'2026-06-24',payee:'Sweetgreen',cat:'dining',acct:'amex',amount:-16.20,source:'sync'},
+    {date:'2026-06-24',payee:'PG&E',cat:'utilities',acct:'checking',amount:-134.72,source:'sync'},
+    {date:'2026-06-23',payee:'CVS Pharmacy',cat:'health',acct:'freedom',amount:-28.40,source:'sync'},
+    {date:'2026-06-23',payee:'Lyft',cat:'transport',acct:'amex',amount:-22.15,source:'sync'},
+    {date:'2026-06-22',payee:'Tartine Bakery',cat:'dining',acct:'amex',amount:-9.50,source:'sync'},
+    {date:'2026-06-22',payee:'Comcast Xfinity',cat:'utilities',acct:'checking',amount:-89.99,source:'sync'},
+    {date:'2026-06-21',payee:'Costco',cat:'groceries',acct:'freedom',amount:-186.43,source:'sync'},
+    {date:'2026-06-20',payee:'REI',cat:'shopping',acct:'amex',amount:-98.75,source:'sync'},
+    {date:'2026-06-20',payee:'Ramen Nagi',cat:'dining',acct:'freedom',amount:-31.00,source:'csv'},
+    {date:'2026-06-19',payee:'One Medical',cat:'health',acct:'freedom',amount:-45.00,source:'sync'},
+    {date:'2026-06-19',payee:'AT&T',cat:'utilities',acct:'checking',amount:-75.00,source:'sync'},
+    {date:'2026-06-18',payee:'Target',cat:'shopping',acct:'freedom',amount:-54.23,source:'sync'},
+    {date:'2026-06-18',payee:'Blue Bottle Coffee',cat:'dining',acct:'amex',amount:-6.75,source:'sync'},
+    {date:'2026-06-17',payee:'Chevron',cat:'transport',acct:'freedom',amount:-48.30,source:'sync'},
+    {date:'2026-06-16',payee:'Whole Foods Market',cat:'groceries',acct:'freedom',amount:-94.10,source:'sync'},
+    {date:'2026-06-15',payee:'Payroll — Acme Corp',cat:'income',acct:'checking',amount:3200.00,source:'sync'},
+    {date:'2026-06-15',payee:'AMC Theatres',cat:'entertainment',acct:'amex',amount:-32.50,source:'sync'},
+    {date:'2026-06-14',payee:'Airbnb',cat:'travel',acct:'amex',amount:-420.00,source:'sync',oneoff:true},
+    {date:'2026-06-13',payee:'Chipotle',cat:'dining',acct:'freedom',amount:-13.75,source:'sync'},
+    {date:'2026-06-13',payee:'Uber',cat:'transport',acct:'amex',amount:-14.60,source:'sync'},
+    {date:'2026-06-12',payee:'Amazon',cat:'shopping',acct:'freedom',amount:-27.80,source:'sync'},
+    {date:'2026-06-12',payee:'iCloud+',cat:'subscriptions',acct:'freedom',amount:-2.99,source:'sync'},
+    {date:'2026-06-11',payee:'Sweetgreen',cat:'dining',acct:'amex',amount:-15.40,source:'sync'},
+    {date:'2026-06-10',payee:'Safeway',cat:'groceries',acct:'freedom',amount:-63.28,source:'sync'},
+    {date:'2026-06-10',payee:'ClassPass',cat:'health',acct:'amex',amount:-49.00,source:'sync'},
+    {date:'2026-06-09',payee:'Steam',cat:'entertainment',acct:'freedom',amount:-19.99,source:'csv'},
+    {date:'2026-06-08',payee:'Blue Bottle Coffee',cat:'dining',acct:'amex',amount:-6.75,source:'sync'},
+    {date:'2026-06-07',payee:'Nordstrom',cat:'refund',acct:'amex',amount:142.00,source:'sync'},
+    {date:'2026-06-06',payee:'United Airlines',cat:'travel',acct:'amex',amount:-288.40,source:'sync'},
+    {date:'2026-06-05',payee:'Uber',cat:'transport',acct:'amex',amount:-21.30,source:'sync'},
+    {date:'2026-06-05',payee:'NYTimes',cat:'subscriptions',acct:'freedom',amount:-4.25,source:'sync'},
+    {date:'2026-06-04',payee:'Whole Foods Market',cat:'groceries',acct:'freedom',amount:-71.90,source:'sync'},
+    {date:'2026-06-03',payee:'Home Depot',cat:'home',acct:'freedom',amount:-132.65,source:'sync',oneoff:true},
+    {date:'2026-06-03',payee:'ChatGPT',cat:'subscriptions',acct:'freedom',amount:-20.00,source:'sync'},
+    {date:'2026-06-02',payee:'Chipotle',cat:'dining',acct:'amex',amount:-12.95,source:'sync'},
+    {date:'2026-06-02',payee:'Amazon',cat:'refund',acct:'freedom',amount:19.99,source:'sync'},
+    {date:'2026-05-30',payee:'Whole Foods Market',cat:'groceries',acct:'freedom',amount:-128.00,source:'sync'},
+    {date:'2026-05-28',payee:'United Airlines',cat:'travel',acct:'amex',amount:-510.00,source:'sync'},
+    {date:'2026-05-25',payee:'Amazon',cat:'shopping',acct:'freedom',amount:-88.40,source:'sync'},
+    {date:'2026-05-22',payee:'PG&E',cat:'utilities',acct:'checking',amount:-128.50,source:'sync'},
+    {date:'2026-05-20',payee:"Trader Joe's",cat:'groceries',acct:'freedom',amount:-74.20,source:'sync'},
+    {date:'2026-05-18',payee:'Chipotle',cat:'dining',acct:'amex',amount:-13.75,source:'sync'},
+    {date:'2026-05-15',payee:'Payroll — Acme Corp',cat:'income',acct:'checking',amount:3200.00,source:'sync'},
+    {date:'2026-05-15',payee:'Comcast Xfinity',cat:'utilities',acct:'checking',amount:-89.99,source:'sync'},
+    {date:'2026-05-12',payee:'Shell',cat:'transport',acct:'freedom',amount:-49.60,source:'sync'},
+    {date:'2026-05-10',payee:'Nordstrom',cat:'shopping',acct:'amex',amount:-212.00,source:'sync'},
+    {date:'2026-05-08',payee:'One Medical',cat:'health',acct:'freedom',amount:-45.00,source:'sync'},
+    {date:'2026-05-05',payee:'Netflix',cat:'subscriptions',acct:'freedom',amount:-15.49,source:'sync'},
+    {date:'2026-05-04',payee:'Home Depot',cat:'home',acct:'freedom',amount:-76.30,source:'sync'},
+    {date:'2026-05-02',payee:'Costco',cat:'groceries',acct:'freedom',amount:-164.80,source:'sync'},
+    {date:'2026-05-01',payee:'Sweetgreen',cat:'dining',acct:'amex',amount:-15.40,source:'sync'},
+    {date:'2026-07-05',payee:'Whole Foods Market',cat:'groceries',acct:'freedom',amount:-66.20,source:'sync'},
+    {date:'2026-07-04',payee:'Shell',cat:'transport',acct:'freedom',amount:-44.10,source:'sync'},
+    {date:'2026-07-03',payee:'Chipotle',cat:'dining',acct:'amex',amount:-12.95,source:'sync'},
+    {date:'2026-07-02',payee:'Netflix',cat:'subscriptions',acct:'freedom',amount:-15.49,source:'sync'},
+    {date:'2026-07-01',payee:'PG&E',cat:'utilities',acct:'checking',amount:-131.20,source:'sync'}
+  ];
+
+  ACCOUNTS = [
+    {key:'freedom', inst:'Chase', name:'Freedom Unlimited', mask:'4321', type:'Credit card', balance:-1284.55, synced:'12 minutes ago', status:'ok'},
+    {key:'amex', inst:'American Express', name:'Gold Card', mask:'1009', type:'Credit card', balance:-842.10, synced:'3 days ago', status:'amber', help:'American Express expired your saved login. Reconnect to resume automatic syncing — your history is safe.'},
+    {key:'checking', inst:'Chase', name:'Total Checking', mask:'7745', type:'Checking', balance:8241.32, synced:'12 minutes ago', status:'error', help:'Chase returned an authentication error (code 402). Re-enter your credentials to restore the connection.'},
+    {key:'capone', inst:'Capital One', name:'Quicksilver', mask:'2201', type:'Credit card · imported CSV', balance:-318.44, csv:true, imported:47}
+  ];
+  REVIEW = [
+    {payee:'TST* Pizzeria Delfina', raw:'TST* PIZZERIA DELFINA 415-5', date:'2026-06-26', acct:'amex', amount:-38.20, cat:'dining', conf:'likely'},
+    {payee:"SQ *Kepler's Books", raw:'SQ *KEPLERS BOOKS MENLO', date:'2026-06-24', acct:'freedom', amount:-24.50, cat:'shopping', conf:'unsure'},
+    {payee:'AMZN Mktp US*RT4K9', raw:'AMZN MKTP US*RT4K92DX3', date:'2026-06-23', acct:'freedom', amount:-42.15, cat:'shopping', conf:'likely'},
+    {payee:'SP HelloFresh', raw:'SP HELLOFRESH 888-728', date:'2026-06-22', acct:'freedom', amount:-68.00, cat:'groceries', conf:'unsure'},
+    {payee:'PAYPAL *Patreon', raw:'PAYPAL *PATREON MEMB', date:'2026-06-21', acct:'freedom', amount:-15.00, cat:'subscriptions', conf:'unsure'},
+    {payee:'UBER* Trip Help', raw:'UBER* TRIP HELP.UBER.COM', date:'2026-06-19', acct:'amex', amount:-21.30, cat:'transport', conf:'likely'}
+  ];
+  _searchRef = React.createRef();
+  state = { screen:'dashboard', mode:'data', monthIdx:1, bannerDismissed:false, hoverIdx:null,
+    filterAccount:'all', filterCat:'all', filterMonth:'2026-06', search:'',
+    selected:{}, activeRow:0, overrides:{}, popover:null,
+    acctOv:{}, acctLinked:{}, confirm:null,
+    importStep:1, importAccount:null, importDone:false,
+    reviewAccepted:{}, activeReview:0,
+    settings:{syncInterval:'15m', aiEndpoint:'http://127.0.0.1:11434', aiModel:'llama3.2:3b'}, savedKey:null, testState:'idle', exportState:'idle',
+    unexpected:{}, goals:{monthly:800, yearly:12000} };
+
+  money(n){ return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  signed(n){ return (n<0?'\u2212':'+')+this.money(n); }
+  monthLabelOf(mk){ const p=mk.split('-'); return this.MONTHNAMES[(+p[1])-1]+' '+p[0]; }
+  monthShortOf(mk){ const p=mk.split('-'); return this.MONTHNAMES[(+p[1])-1]; }
+  rowsFor(mk){ return this.TXNS.filter(t=>t.date.slice(0,7)===mk); }
+  spendTotal(mk){ return this.rowsFor(mk).filter(t=>t.amount<0 && !t.pending && t.cat!=='refund').reduce((s,t)=>s-t.amount,0); }
+
+  go(screen){ this.setState({screen, mode:'data', hoverIdx:null}); }
+  goDashboard(){ this.go('dashboard'); }
+  goTransactions(){ this.go('transactions'); }
+  goAccounts(){ this.go('accounts'); }
+  goImport(){ this.go('import'); }
+  goReview(){ this.go('review'); }
+  goSettings(){ this.go('settings'); }
+  goTokens(){ this.go('tokens'); }
+  goGoals(){ this.go('goals'); }
+  setMode(m){ this.setState({mode:m, hoverIdx:null}); }
+  prevMonth(){ this.setState(s=>({monthIdx:Math.max(0,s.monthIdx-1),hoverIdx:null})); }
+  nextMonth(){ this.setState(s=>({monthIdx:Math.min(this.MONTHS.length-1,s.monthIdx+1),hoverIdx:null})); }
+  dismissBanner(){ this.setState({bannerDismissed:true}); }
+  clearHover(){ this.setState({hoverIdx:null}); }
+
+  fmtDate(d){ const p=d.split('-'); return this.MONTHNAMES[(+p[1])-1].slice(0,3)+' '+(+p[2]); }
+  catOf(i){ return this.state.overrides[i] || this.TXNS[i].cat; }
+  isUnexpected(i){ const o=this.state.unexpected; return (i in o) ? o[i] : !!this.TXNS[i].oneoff; }
+  setGoal(key, delta){ this.setState(s=>{ const g=Object.assign({},s.goals); g[key]=Math.max(0, g[key]+delta); return {goals:g}; }); }
+  togglePopUnexpected(){ this.setState(s=>({popover:Object.assign({},s.popover,{unexpected:!s.popover.unexpected})})); }
+  filteredTxns(){
+    const S=this.state;
+    return this.TXNS.map((t,i)=>({t,i})).filter(({t,i})=>{
+      if(S.filterAccount!=='all' && t.acct!==S.filterAccount) return false;
+      if(S.filterCat!=='all' && this.catOf(i)!==S.filterCat) return false;
+      if(S.filterMonth!=='all' && t.date.slice(0,7)!==S.filterMonth) return false;
+      if(S.search && !t.payee.toLowerCase().includes(S.search.toLowerCase())) return false;
+      return true;
+    }).sort((a,b)=> b.t.date.localeCompare(a.t.date) );
+  }
+  onSearch(e){ this.setState({search:e.target.value, activeRow:0}); }
+  onFilterAccount(e){ this.setState({filterAccount:e.target.value, activeRow:0}); }
+  onFilterCat(e){ this.setState({filterCat:e.target.value, activeRow:0}); }
+  onFilterMonth(e){ this.setState({filterMonth:e.target.value, activeRow:0}); }
+  setFilter(patch){ this.setState(Object.assign({activeRow:0}, patch)); }
+  clearFilters(){ this.setState({filterAccount:'all',filterCat:'all',filterMonth:'all',search:'',activeRow:0}); }
+  toggleRow(i){ this.setState(s=>{ const sel=Object.assign({},s.selected); if(sel[i]) delete sel[i]; else sel[i]=true; return {selected:sel}; }); }
+  selectAllFiltered(){ const f=this.filteredTxns(); const all=f.length>0 && f.every(({i})=>this.state.selected[i]); const sel={}; if(!all) f.forEach(({i})=>{sel[i]=true;}); this.setState({selected:sel}); }
+  clearSel(){ this.setState({selected:{}}); }
+  placePopover(rect){ const w=266,h=390; let left=rect.left; if(left+w>window.innerWidth-12) left=window.innerWidth-12-w; if(left<12) left=12; let top=rect.bottom+6; if(top+h>window.innerHeight-12) top=Math.max(12, rect.top-6-h); return {left:left+'px', top:top+'px'}; }
+  openPopover(i, rect){ this.setState({popover:Object.assign({i, bulk:false, query:'', cat:this.catOf(i), scope:'once', alsoPast:false, unexpected:this.isUnexpected(i)}, this.placePopover(rect))}); }
+  openBulkPopover(rect){ this.setState({popover:Object.assign({bulk:true, query:'', cat:null}, this.placePopover(rect))}); }
+  setPopQuery(e){ const v=e.target.value; this.setState(s=>({popover:Object.assign({},s.popover,{query:v})})); }
+  pickCat(k){ this.setState(s=>({popover:Object.assign({},s.popover,{cat:k})})); }
+  setScope(v){ this.setState(s=>({popover:Object.assign({},s.popover,{scope:v, alsoPast: v==='always'?s.popover.alsoPast:false})})); }
+  toggleAlsoPast(){ this.setState(s=>({popover:Object.assign({},s.popover,{alsoPast:!s.popover.alsoPast})})); }
+  closePopover(){ this.setState({popover:null}); }
+  confirmPopover(){
+    const p=this.state.popover; if(!p||!p.cat) return;
+    if(p.review){ this.setState(s=>({reviewAccepted:Object.assign({},s.reviewAccepted,{[p.ridx]:true}), popover:null})); return; }
+    const ov=Object.assign({},this.state.overrides);
+    if(p.bulk){ Object.keys(this.state.selected).forEach(i=>{ ov[i]=p.cat; }); this.setState({overrides:ov, popover:null, selected:{}}); return; }
+    ov[p.i]=p.cat;
+    if(p.scope==='always' && p.alsoPast){ const payee=this.TXNS[p.i].payee; this.TXNS.forEach((t,idx)=>{ if(t.payee===payee) ov[idx]=p.cat; }); }
+    const un=Object.assign({},this.state.unexpected); un[p.i]=!!p.unexpected;
+    this.setState({overrides:ov, unexpected:un, popover:null});
+  }
+  effStatus(a){ return (this.state.acctOv[a.key] && this.state.acctOv[a.key].status) || a.status; }
+  effSynced(a){ return (this.state.acctOv[a.key] && this.state.acctOv[a.key].synced) || a.synced; }
+  reconnectAcct(key){ this.setState(s=>({acctOv:Object.assign({},s.acctOv,{[key]:{status:'ok',synced:'just now'}})})); }
+  openConfirm(cfg){ this.setState({confirm:cfg}); }
+  closeConfirm(){ this.setState({confirm:null}); }
+  linkHistory(a){ this.openConfirm({ title:'Link imported history?', body:'Match '+a.imported+' imported transactions from '+a.inst+' \u2022\u2022'+a.mask+' into a live bank connection. Transactions are matched by date and amount; duplicates are skipped and nothing is deleted.', confirmLabel:'Link '+a.imported+' transactions', onConfirm:()=>{ this.setState(s=>({acctLinked:Object.assign({},s.acctLinked,{[a.key]:true}), confirm:null})); } }); }
+  importNext(){ if(this.state.importStep===2 && this.state.importAccount==null) return; this.setState(s=>({importStep:Math.min(3,s.importStep+1)})); }
+  importBack(){ this.setState(s=>({importStep:Math.max(1,s.importStep-1)})); }
+  setImportAccount(k){ this.setState({importAccount:k}); }
+  doImport(){ this.setState({importDone:true}); }
+  resetImport(){ this.setState({importStep:1, importAccount:null, importDone:false}); }
+  acceptReview(idx){ this.setState(s=>({reviewAccepted:Object.assign({},s.reviewAccepted,{[idx]:true})})); }
+  acceptAllLikely(){ const acc=Object.assign({},this.state.reviewAccepted); this.REVIEW.forEach((r,i)=>{ if(r.conf==='likely') acc[i]=true; }); this.setState({reviewAccepted:acc}); }
+  openReviewPopover(idx, rect){ this.setState({popover:Object.assign({review:true, ridx:idx, query:'', cat:this.REVIEW[idx].cat}, this.placePopover(rect))}); }
+  setSetting(key, val){ this.setState(s=>({settings:Object.assign({},s.settings,{[key]:val}), savedKey:key, testState: key==='aiEndpoint'||key==='aiModel'?'idle':s.testState})); clearTimeout(this._saveT); this._saveT=setTimeout(()=>this.setState({savedKey:null}),1700); }
+  testConnection(){ this.setState({testState:'testing'}); clearTimeout(this._testT); this._testT=setTimeout(()=>this.setState({testState:'ok'}),950); }
+  exportData(){ this.setState({exportState:'working'}); clearTimeout(this._expT); this._expT=setTimeout(()=>this.setState({exportState:'done'}),1100); }
+
+  componentDidMount(){
+    this._kh = (e)=>{
+      if(e.key==='Escape' && this.state.popover){ this.closePopover(); return; }
+      if(this.state.popover) return;
+      const tag = (e.target && e.target.tagName) || '';
+      const typing = tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+      if(this.state.screen==='dashboard' && this.state.mode==='data'){
+        if(typing) return;
+        if(e.key==='ArrowLeft'){ e.preventDefault(); this.prevMonth(); }
+        else if(e.key==='ArrowRight'){ e.preventDefault(); this.nextMonth(); }
+        return;
+      }
+      if(this.state.screen==='transactions' && this.state.mode==='data'){
+        if(e.key==='/' && !typing){ e.preventDefault(); if(this._searchRef && this._searchRef.current) this._searchRef.current.focus(); return; }
+        if(typing) return;
+        const f=this.filteredTxns(); const n=f.length; if(!n) return;
+        if(e.key==='ArrowDown'){ e.preventDefault(); this.setState(s=>({activeRow:Math.min(n-1, s.activeRow+1)})); }
+        else if(e.key==='ArrowUp'){ e.preventDefault(); this.setState(s=>({activeRow:Math.max(0, s.activeRow-1)})); }
+        else if(e.key==='Enter'){ e.preventDefault(); const fi=Math.min(this.state.activeRow, n-1); const orig=f[fi].i; const el=document.querySelector('[data-cat-btn="'+fi+'"]'); const rect= el?el.getBoundingClientRect():{left:420,right:686,top:220,bottom:244}; this.openPopover(orig, rect); }
+        return;
+      }
+      if(this.state.screen==='review' && this.state.mode==='data'){
+        if(typing) return;
+        const q=this.REVIEW.map((r,i)=>i).filter(i=>!this.state.reviewAccepted[i]); const n=q.length; if(!n) return;
+        if(e.key==='ArrowDown'){ e.preventDefault(); this.setState(s=>({activeReview:Math.min(n-1, s.activeReview+1)})); }
+        else if(e.key==='ArrowUp'){ e.preventDefault(); this.setState(s=>({activeReview:Math.max(0, s.activeReview-1)})); }
+        else if(e.key==='Enter'){ e.preventDefault(); const ri=Math.min(this.state.activeReview, n-1); this.acceptReview(q[ri]); }
+      }
+    };
+    window.addEventListener('keydown', this._kh);
+  }
+  componentWillUnmount(){ if(this._kh) window.removeEventListener('keydown', this._kh); }
+
+  renderVals(){
+    const S = this.state;
+    const mk = this.MONTHS[S.monthIdx];
+    const rows = this.rowsFor(mk);
+    const spendRows = rows.filter(t=>t.amount<0 && !t.pending && t.cat!=='refund');
+
+    const catMap = {};
+    spendRows.forEach(t=>{ catMap[t.cat] = (catMap[t.cat]||0) - t.amount; });
+    const catArr = Object.keys(catMap).map(k=>({k,v:catMap[k]})).sort((a,b)=>b.v-a.v);
+    const maxCat = catArr.length ? catArr[0].v : 1;
+    const catBars = catArr.map(c=>({ label:this.CATS[c.k].label, color:this.CATS[c.k].color, amount:this.money(c.v), pct:(c.v/maxCat*100).toFixed(1)+'%' }));
+
+    const totalSpend = spendRows.reduce((s,t)=>s-t.amount,0);
+    let delta=null, prevLabel='';
+    if(S.monthIdx>0){ const p=this.spendTotal(this.MONTHS[S.monthIdx-1]); delta=totalSpend-p; prevLabel=this.monthShortOf(this.MONTHS[S.monthIdx-1]); }
+
+    const refundSum = rows.filter(t=>t.cat==='refund').reduce((s,t)=>s+t.amount,0);
+    const pend = rows.filter(t=>t.pending);
+    const pendSum = pend.reduce((s,t)=>s+Math.abs(t.amount),0);
+
+    const mMap = {};
+    spendRows.forEach(t=>{ mMap[t.payee] = (mMap[t.payee]||0) - t.amount; });
+    const topMerchants = Object.keys(mMap).map(p=>({p,v:mMap[p]})).sort((a,b)=>b.v-a.v).slice(0,8).map((m,i)=>({rank:i+1,payee:m.p,amount:this.money(m.v)}));
+
+    const T=this.TREND, W=700, pl=12, pr=12, pt=18, pb=24, H=200;
+    const allv = T.reduce((a,d)=>a.concat([d.spend,d.income]),[]);
+    const mx=Math.max.apply(null,allv), mn=Math.min.apply(null,allv);
+    const X=i=>pl+i*((W-pl-pr)/(T.length-1));
+    const Y=v=>pt+(1-(v-mn)/(mx-mn))*(H-pt-pb);
+    const step=(W-pl-pr)/(T.length-1);
+    const spendPoints=T.map((d,i)=>X(i).toFixed(1)+','+Y(d.spend).toFixed(1)).join(' ');
+    const incomePoints=T.map((d,i)=>X(i).toFixed(1)+','+Y(d.income).toFixed(1)).join(' ');
+    const trendCols=T.map((d,i)=>({ m:d.m, x:X(i).toFixed(1), spendY:Y(d.spend).toFixed(1), incomeY:Y(d.income).toFixed(1), rectX:(X(i)-step/2).toFixed(1), rectW:step.toFixed(1), left:(X(i)/W*100).toFixed(2)+'%', spend:'Spend '+this.money(d.spend), income:'Income '+this.money(d.income), onEnter:()=>this.setState({hoverIdx:i}) }));
+    const hoveredCol = S.hoverIdx!=null ? trendCols[S.hoverIdx] : null;
+    const trendGrid=[0.25,0.5,0.75].map(f=>({y:(pt+f*(H-pt-pb)).toFixed(1)}));
+
+    const fRows = this.filteredTxns();
+    const activeRow = Math.min(S.activeRow, Math.max(0, fRows.length-1));
+    const filteredRows = fRows.map(({t,i}, fi)=>{
+      const ck=this.catOf(i); const c=this.CATS[ck]; const acc=this.ACCT[t.acct];
+      const isIn = t.amount>0;
+      return {
+        fi, _i:i, pending:!!t.pending,
+        dateShort:this.fmtDate(t.date), payee:t.payee,
+        payeeColor: t.pending?'#64748B':'#F1F5F9',
+        catLabel:c.label, catColor:c.color,
+        mask:acc.mask,
+        amt:this.signed(t.amount),
+        amtColor: t.pending?'#64748B':(isIn?'#34D399':'#E2E8F0'),
+        leftBorder: t.pending?'#D97706':'transparent',
+        rowBg: fi===activeRow?'rgba(59,130,246,0.09)':(this.state.selected[i]?'rgba(59,130,246,0.05)':'transparent'),
+        selected:!!this.state.selected[i],
+        isCsv:t.source==='csv', isSync:t.source!=='csv',
+        sourceTitle: t.source==='csv'?'Imported from CSV':'Auto-synced from bank',
+        unexpected: this.isUnexpected(i),
+        onToggle:()=>this.toggleRow(i),
+        onCat:(e)=>this.openPopover(i, e.currentTarget.getBoundingClientRect())
+      };
+    });
+    const selCount = Object.keys(S.selected).length;
+    const allSelected = fRows.length>0 && fRows.every(({i})=>S.selected[i]);
+    const chips=[];
+    if(S.search) chips.push({label:'\u201c'+S.search+'\u201d', onRemove:()=>this.setFilter({search:''})});
+    if(S.filterAccount!=='all') chips.push({label:this.ACCT[S.filterAccount].inst+' \u2022\u2022'+this.ACCT[S.filterAccount].mask, onRemove:()=>this.setFilter({filterAccount:'all'})});
+    if(S.filterCat!=='all') chips.push({label:this.CATS[S.filterCat].label, onRemove:()=>this.setFilter({filterCat:'all'})});
+    if(S.filterMonth!=='all') chips.push({label:this.monthLabelOf(S.filterMonth), onRemove:()=>this.setFilter({filterMonth:'all'})});
+
+    let pop=null;
+    if(S.popover){
+      const P=S.popover; const q=(P.query||'').toLowerCase();
+      const keys=Object.keys(this.CATS).filter(k=>k!=='income'&&k!=='refund');
+      const cats=keys.filter(k=>this.CATS[k].label.toLowerCase().includes(q)).map(k=>({ label:this.CATS[k].label, color:this.CATS[k].color, selected:P.cat===k, bg:P.cat===k?'rgba(59,130,246,0.14)':'transparent', fg:P.cat===k?'#fff':'#CBD5E1', onPick:()=>this.pickCat(k) }));
+      const isReview=!!P.review;
+      let payee='', pastCount=0;
+      if(isReview){ payee=this.REVIEW[P.ridx].payee; }
+      else if(!P.bulk){ payee=this.TXNS[P.i].payee; pastCount=this.TXNS.filter((t,idx)=>t.payee===payee && idx!==P.i).length; }
+      const can=!!P.cat;
+      pop={
+        left:P.left, top:P.top, bulk:!!P.bulk,
+        title: P.bulk?('Recategorize '+selCount+' transactions'):(isReview?'Change category':'Categorize'),
+        showPayee: !P.bulk, payee, payeeQuoted:'\u201c'+payee+'\u201d',
+        query:P.query||'', onQuery:(e)=>this.setPopQuery(e),
+        cats, noMatch:cats.length===0,
+        showScope: !P.bulk && !isReview,
+        showUnexpected: !P.bulk && !isReview, unexpected: !!P.unexpected, toggleUnexpected:()=>this.togglePopUnexpected(), unexToggleBg: P.unexpected?'#3B82F6':'rgba(255,255,255,0.16)', unexToggleX: P.unexpected?'16px':'2px',
+        scopeOnce:P.scope==='once', scopeAlways:P.scope==='always',
+        onceRing:P.scope==='once'?'#3B82F6':'#475569', alwaysRing:P.scope==='always'?'#3B82F6':'#475569',
+        alsoPast:!!P.alsoPast, pastCount, pastRing:P.alsoPast?'#3B82F6':'#475569', pastFill:P.alsoPast?'#3B82F6':'transparent',
+        setScopeOnce:()=>this.setScope('once'), setScopeAlways:()=>this.setScope('always'), toggleAlsoPast:()=>this.toggleAlsoPast(),
+        confirmLabel: P.bulk?('Recategorize '+selCount):(isReview?'Accept':(P.scope==='always'?'Apply always':'Apply')),
+        confirmBg: can?'#3B82F6':'rgba(59,130,246,0.35)', confirmFg: can?'#fff':'rgba(255,255,255,0.5)', confirmCursor: can?'pointer':'not-allowed',
+        confirm:()=>this.confirmPopover(), close:()=>this.closePopover()
+      };
+    }
+
+    const statusMap={ ok:{label:'Connected',dot:'#059669',pillBg:'rgba(5,150,105,0.13)',pillFg:'#34D399'}, amber:{label:'Reconnect needed',dot:'#D97706',pillBg:'rgba(217,119,6,0.13)',pillFg:'#FBBF24'}, error:{label:'Sync error',dot:'#DC2626',pillBg:'rgba(220,38,38,0.13)',pillFg:'#F87171'} };
+    const accountCards = this.ACCOUNTS.map(a=>{
+      const st=this.effStatus(a); const linked=!!this.state.acctLinked[a.key];
+      const sm = a.csv ? {label: linked?'Linked':'CSV import', dot:'#64748B', pillBg:'rgba(255,255,255,0.06)', pillFg:'#94A3B8'} : statusMap[st];
+      return {
+        key:a.key, inst:a.inst, name:a.name, mask:a.mask, type:a.type, mono:a.inst.charAt(0),
+        balance:(a.balance<0?'\u2212':'')+this.money(a.balance), balanceLabel: a.balance<0?'Balance owed':'Available balance',
+        synced: a.csv ? (linked?'Linked to live sync':'Imported · not auto-synced') : ('Last synced '+this.effSynced(a)),
+        statusLabel:sm.label, dot:sm.dot, pillBg:sm.pillBg, pillFg:sm.pillFg,
+        isAmber: !a.csv && st==='amber', isError: !a.csv && st==='error', isOk: !a.csv && st==='ok',
+        isCsv:!!a.csv, canLink: !!a.csv && !linked, help:a.help||'',
+        onReconnect:()=>this.reconnectAcct(a.key), onLink:()=>this.linkHistory(a)
+      };
+    });
+    const amberCount = this.ACCOUNTS.filter(a=>!a.csv && this.effStatus(a)==='amber').length;
+    const errorCount = this.ACCOUNTS.filter(a=>!a.csv && this.effStatus(a)==='error').length;
+    const needsAttention = amberCount+errorCount;
+    const cfg = S.confirm;
+
+    const reviewQueue = this.REVIEW.map((r,i)=>({r,i})).filter(o=>!S.reviewAccepted[o.i]);
+    const reviewCountN = reviewQueue.length;
+    const activeReviewN = Math.min(S.activeReview, Math.max(0, reviewQueue.length-1));
+    const reviewItems = reviewQueue.map((o, ri)=>{ const r=o.r; const c=this.CATS[r.cat]; const acc=this.ACCT[r.acct]; return { i:o.i, ri, payee:r.payee, raw:r.raw, dateShort:this.fmtDate(r.date), mask:acc.mask, amount:this.signed(r.amount), catLabel:c.label, catColor:c.color, likely:r.conf==='likely', confWord:r.conf==='likely'?'likely':'unsure', confColor:r.conf==='likely'?'#94A3B8':'#FBBF24', confBg:r.conf==='likely'?'rgba(255,255,255,0.05)':'rgba(217,119,6,0.12)', active: ri===activeReviewN, rowBg: ri===activeReviewN?'rgba(59,130,246,0.06)':'transparent', onAccept:()=>this.acceptReview(o.i), onPick:(e)=>this.openReviewPopover(o.i, e.currentTarget.getBoundingClientRect()) }; });
+    const likelyCount = reviewQueue.filter(o=>o.r.conf==='likely').length;
+
+    const stepMeta=[{n:1,label:'Detect file'},{n:2,label:'Choose account'},{n:3,label:'Review & import'}];
+    const importNodes=stepMeta.map(m=>{ const st=S.importStep>m.n?'done':(S.importStep===m.n?'current':'todo'); return { n:m.n, label:m.label, done:st==='done', notDone: st!=='done', connector: m.n<3, current:st==='current', circleBg: st==='current'?'#3B82F6':(st==='done'?'rgba(5,150,105,0.18)':'#0B1428'), circleBorder: st==='todo'?'rgba(255,255,255,0.14)':(st==='done'?'rgba(5,150,105,0.4)':'#3B82F6'), numColor: st==='current'?'#fff':(st==='done'?'#34D399':'#475569'), labelColor: st==='todo'?'#475569':'#E2E8F0' }; });
+    const importNextOk = S.importStep===1 || (S.importStep===2 && S.importAccount!=null);
+    const importAccts=[{key:'freedom',label:'Chase Freedom Unlimited',mask:'4321',sug:true},{key:'amex',label:'American Express Gold',mask:'1009',sug:false},{key:'checking',label:'Chase Total Checking',mask:'7745',sug:false}].map(a=>({ key:a.key, label:a.label, mask:a.mask, suggested:a.sug, selected:S.importAccount===a.key, ring:S.importAccount===a.key?'#3B82F6':'rgba(255,255,255,0.14)', bg:S.importAccount===a.key?'rgba(59,130,246,0.08)':'transparent', onPick:()=>this.setImportAccount(a.key) }));
+    const importTargetMask = S.importAccount ? ({freedom:'4321',amex:'1009',checking:'7745'})[S.importAccount] : '4321';
+    const importTargetName = S.importAccount ? ({freedom:'Chase Freedom',amex:'Amex Gold',checking:'Chase Checking'})[S.importAccount] : 'Chase Freedom';
+
+    const annIn=this.TREND.reduce((s,d)=>s+d.income,0), annSp=this.TREND.reduce((s,d)=>s+d.spend,0), annNet=annIn-annSp;
+    const annualValue=(annNet<0?'\u2212':'+')+this.money(annNet);
+    const annualColor= annNet>=0 ? '#34D399' : '#E2E8F0';
+    const unexList=this.TXNS.map((t,i)=>({t,i})).filter(o=>o.t.date.slice(0,7)===mk && o.t.amount<0 && !o.t.pending && o.t.cat!=='refund' && this.isUnexpected(o.i));
+    const unexTotal=unexList.reduce((s,o)=>s-o.t.amount,0), unexCount=unexList.length;
+    const gmk='2026-06', gRows=this.rowsFor(gmk);
+    const mIn=gRows.filter(t=>t.amount>0 && !t.pending).reduce((s,t)=>s+t.amount,0);
+    const mSp=gRows.filter(t=>t.amount<0 && !t.pending && t.cat!=='refund').reduce((s,t)=>s-t.amount,0);
+    const monthlySaved=mIn-mSp; const gm=S.goals.monthly, gy=S.goals.yearly;
+    const gv={ monthlyTarget:this.money(gm), yearlyTarget:this.money(gy),
+      monthlySaved:(monthlySaved<0?'\u2212':'+')+this.money(monthlySaved), monthlySavedColor: monthlySaved>=0?'#34D399':'#E2E8F0',
+      yearlySaved:annualValue, yearlySavedColor:annualColor,
+      monthlyPct:(gm>0?Math.max(3,Math.min(100,monthlySaved/gm*100)):0).toFixed(0)+'%',
+      yearlyPct:(gy>0?Math.max(3,Math.min(100,annNet/gy*100)):0).toFixed(0)+'%',
+      monthlyReached: monthlySaved>=gm, yearlyReached: annNet>=gy, monthlyNotReached: monthlySaved<gm, yearlyNotReached: annNet<gy,
+      monthlyRemain:this.money(Math.max(0,gm-monthlySaved)), yearlyRemain:this.money(Math.max(0,gy-annNet)),
+      monthlyBarColor: monthlySaved>=gm?'#059669':'#3B82F6', yearlyBarColor: annNet>=gy?'#059669':'#3B82F6',
+      incMonthly:()=>this.setGoal('monthly',50), decMonthly:()=>this.setGoal('monthly',-50),
+      incYearly:()=>this.setGoal('yearly',500), decYearly:()=>this.setGoal('yearly',-500) };
+
+    const titles={dashboard:'Dashboard',transactions:'Transactions',accounts:'Accounts',import:'Import',review:'Review',settings:'Settings',tokens:'Design tokens',goals:'Goals'};
+    const tabOf=k=>({bg:S.screen===k?'rgba(59,130,246,0.14)':'transparent', fg:S.screen===k?'#fff':'#94A3B8', bar:S.screen===k?'#3B82F6':'transparent'});
+    const segOf=m=>({bg:S.mode===m?'rgba(255,255,255,0.09)':'transparent', fg:S.mode===m?'#fff':'#64748B'});
+
+    return {
+      isDashboard:S.screen==='dashboard', isTransactions:S.screen==='transactions', isAccounts:S.screen==='accounts',
+      isImport:S.screen==='import', isReview:S.screen==='review', isSettings:S.screen==='settings', isTokens:S.screen==='tokens', isGoals:S.screen==='goals',
+      screenTitle:titles[S.screen], showStateToggle:S.screen!=='tokens',
+      reviewCount: reviewCountN>0 ? reviewCountN : null,
+      reviewItems, hasReview: reviewCountN>0, noReview: reviewCountN===0, reviewCountN, likelyCount, hasLikely: likelyCount>0,
+      acceptAllLikely:()=>this.acceptAllLikely(),
+      showAnnual: S.screen!=='tokens', annualValue, annualColor,
+      hasUnexpected: unexCount>0, unexpectedTotal: this.money(unexTotal), unexpectedCount: unexCount,
+      gv,
+      modeDataOrEmpty: S.mode==='data'||S.mode==='empty',
+      settings:S.settings,
+      setSyncInterval:(e)=>this.setSetting('syncInterval', e.target.value),
+      setAiEndpoint:(e)=>this.setSetting('aiEndpoint', e.target.value),
+      setAiModel:(e)=>this.setSetting('aiModel', e.target.value),
+      savedSync: S.savedKey==='syncInterval', savedEndpoint: S.savedKey==='aiEndpoint', savedModel: S.savedKey==='aiModel',
+      testConnection:()=>this.testConnection(), testIdle:S.testState==='idle', testTesting:S.testState==='testing', testOk:S.testState==='ok',
+      exportData:()=>this.exportData(), exportIdle:S.exportState==='idle', exportWorking:S.exportState==='working', exportDone:S.exportState==='done',
+      tab:{dashboard:tabOf('dashboard'),transactions:tabOf('transactions'),accounts:tabOf('accounts'),import:tabOf('import'),review:tabOf('review'),settings:tabOf('settings'),tokens:tabOf('tokens'),goals:tabOf('goals')},
+      seg:{data:segOf('data'),loading:segOf('loading'),empty:segOf('empty'),error:segOf('error')},
+      goDashboard:()=>this.goDashboard(), goTransactions:()=>this.goTransactions(), goAccounts:()=>this.goAccounts(),
+      goImport:()=>this.goImport(), goReview:()=>this.goReview(), goSettings:()=>this.goSettings(), goTokens:()=>this.goTokens(), goGoals:()=>this.goGoals(),
+      goReviewFromBanner:()=>this.goTransactions(),
+      setModeData:()=>this.setMode('data'), setModeLoading:()=>this.setMode('loading'), setModeEmpty:()=>this.setMode('empty'), setModeError:()=>this.setMode('error'),
+      modeData:S.mode==='data', modeLoading:S.mode==='loading', modeEmpty:S.mode==='empty', modeError:S.mode==='error',
+      monthLabel:this.monthLabelOf(mk), monthShort:this.monthShortOf(mk),
+      prevMonth:()=>this.prevMonth(), nextMonth:()=>this.nextMonth(),
+      heroTotal:this.money(totalSpend),
+      deltaText: delta==null ? 'No prior month' : this.money(Math.abs(delta))+' vs '+prevLabel,
+      deltaUp: delta!=null && delta>0, deltaDown: delta!=null && delta<0,
+      catBars, refunds:{present:refundSum>0, amount:'+'+this.money(refundSum)},
+      topMerchants, hasPending:pendSum>0, pendingTotal:this.money(pendSum),
+      spendPoints, incomePoints, trendCols, trendGrid, hoveredCol, clearHover:()=>this.clearHover(),
+      bannerPresent: !S.bannerDismissed, dismissBanner:()=>this.dismissBanner(),
+      skel8:[1,2,3,4,5,6,7,8], skel12:[1,2,3,4,5,6,7,8,9,10,11,12], skel4:[1,2,3,4],
+      tkSurfaces:[{name:'Background',hex:'#0F172A',sw:'#0F172A'},{name:'Surface / muted',hex:'#101A34',sw:'#101A34'},{name:'Border',hex:'rgba(255,255,255,0.08)',sw:'rgba(255,255,255,0.08)'}],
+      tkText:[{name:'Foreground',hex:'#FFFFFF',sw:'#FFFFFF',ratio:'17.3:1',grade:'AAA'},{name:'Secondary',hex:'#CBD5E1',sw:'#CBD5E1',ratio:'11.6:1',grade:'AAA'},{name:'Muted',hex:'#94A3B8',sw:'#94A3B8',ratio:'6.8:1',grade:'AA'}],
+      tkSemantic:[{name:'Money in · healthy',hex:'#059669',text:'#34D399',ratio:'8.7:1',use:'income, refunds'},{name:'Money out',hex:'#E2E8F0',text:'#E2E8F0',ratio:'15.8:1',use:'spending — neutral by design'},{name:'Danger',hex:'#DC2626',text:'#F87171',ratio:'6.2:1',use:'destructive, sync errors'},{name:'Attention',hex:'#D97706',text:'#FBBF24',ratio:'10.4:1',use:'pending, reconnect'},{name:'Primary',hex:'#3B82F6',text:'#3B82F6',ratio:'4.7:1',use:'interactive, links'},{name:'Focus ring',hex:'#1E40AF',text:'#60A5FA',ratio:'3.1:1',use:'focus outline'}],
+      tkChart:[{name:'Groceries',sw:'#7C83C4'},{name:'Dining',sw:'#4E9C99'},{name:'Transport',sw:'#C57B96'},{name:'Shopping',sw:'#B39B57'},{name:'Subscriptions',sw:'#9E7FB0'},{name:'Health',sw:'#C08A63'},{name:'Entertainment',sw:'#8FA07E'},{name:'Utilities',sw:'#8C8FA8'},{name:'Travel',sw:'#B0788F'},{name:'Home',sw:'#6FA0A8'}],
+      stop:(e)=>e.stopPropagation(),
+      searchRef:this._searchRef, search:S.search, onSearch:(e)=>this.onSearch(e),
+      filterAccount:S.filterAccount, filterCat:S.filterCat, filterMonth:S.filterMonth,
+      onFilterAccount:(e)=>this.onFilterAccount(e), onFilterCat:(e)=>this.onFilterCat(e), onFilterMonth:(e)=>this.onFilterMonth(e),
+      chips, hasChips:chips.length>0, clearFilters:()=>this.clearFilters(),
+      filteredRows, hasRows:fRows.length>0, noResults:fRows.length===0, filteredCount:fRows.length+(fRows.length===1?' transaction':' transactions'),
+      selCount, hasSelection:selCount>0, allSelected, selectAll:()=>this.selectAllFiltered(), clearSel:()=>this.clearSel(),
+      bulkRecat:(e)=>this.openBulkPopover(e.currentTarget.getBoundingClientRect()),
+      popover:pop,
+      accountCards, amberCount, errorCount, needsAttention,
+      footerAmber: needsAttention>0, footerOk: needsAttention===0,
+      footerText: needsAttention===1 ? '1 account needs attention' : (needsAttention>1 ? needsAttention+' accounts need attention' : 'Synced 12 minutes ago'),
+      confirm: cfg ? { title:cfg.title, body:cfg.body, confirmLabel:cfg.confirmLabel, onConfirm:cfg.onConfirm, close:()=>this.closeConfirm() } : null,
+      importNodes, importStep1:S.importStep===1, importStep2:S.importStep===2, importStep3:S.importStep===3,
+      importNext:()=>this.importNext(), importBack:()=>this.importBack(), importDone:S.importDone,
+      importAccts, importCanNext: S.importAccount!=null, importTargetMask, importTargetName,
+      importNotDone: !S.importDone, importCanBack: S.importStep>1, importShowNext: S.importStep<3, importShowImport: S.importStep===3,
+      importNextBg: importNextOk?'#3B82F6':'rgba(59,130,246,0.35)', importNextFg: importNextOk?'#fff':'rgba(255,255,255,0.5)', importNextCursor: importNextOk?'pointer':'not-allowed',
+      setModeEmpty:()=>this.setMode('empty'),
+      doImport:()=>this.doImport(), resetImport:()=>this.resetImport()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -59,8 +59,14 @@ function makeWorld(): World {
         },
       }
     },
+    makePlaidClient: () => {
+      throw new Error('plaid not exercised here')
+    },
     startEnrollmentServer: async () => {
       throw new Error('enrollment not exercised here')
+    },
+    startPlaidLinkServer: async () => {
+      throw new Error('plaid link not exercised here')
     },
     openExternal: async () => {},
     getApplicationId: async () => 'app_test',
@@ -77,6 +83,7 @@ describe('end-to-end pipeline: CSV backfill → link → Teller sync → dashboa
   beforeEach(async () => {
     world = makeWorld()
     const { service, repo, secrets } = world
+    await service.updateSettings({ provider: 'teller' }) // this pipeline syncs via Teller
 
     // 1) CSV backfill into a csv-only credit account
     const creditCsv = await service.createCsvAccount({
@@ -247,6 +254,7 @@ describe('end-to-end pipeline: CSV backfill → link → Teller sync → dashboa
   it('month totals are stable regardless of import order (CSV date precedence held)', async () => {
     // sync FIRST on a fresh world, then import the CSV — June must look identical
     const fresh = makeWorld()
+    await fresh.service.updateSettings({ provider: 'teller' })
     const teller = fresh.repo.createAccount({
       name: 'Chase Freedom',
       institution: 'chase',

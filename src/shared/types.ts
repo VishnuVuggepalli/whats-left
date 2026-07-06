@@ -7,10 +7,10 @@
  *   from a date-only string (UTC-midnight parsing shifts it a day in US timezones).
  */
 
-export type Source = 'teller' | 'chase_csv' | 'amex_csv'
+export type Source = 'plaid' | 'teller' | 'chase_csv' | 'amex_csv'
 export type TxnStatus = 'posted' | 'pending'
 export type CategorySource = 'user' | 'rule' | 'cache' | 'source' | 'llm'
-export type Institution = 'chase' | 'amex'
+export type Institution = 'chase' | 'amex' | 'other'
 export type AccountType = 'depository' | 'credit'
 export type AccountStatus = 'ok' | 'reconnect_required' | 'error'
 export type TellerEnv = 'sandbox' | 'development'
@@ -175,10 +175,27 @@ export interface EnrollmentResult {
   error?: string
 }
 
+export type PlaidEnv = 'sandbox' | 'production'
+
 export interface SettingsDto {
+  /** primary bank feed provider */
+  provider: 'plaid' | 'teller'
   tellerEnv: TellerEnv
+  plaidEnv: PlaidEnv
+  /** Plaid client id (safe to display); secret is write-only via updateSettings */
+  plaidClientId: string | null
+  /** true when a Plaid secret is stored (the secret itself is never returned) */
+  plaidSecretSet: boolean
   syncIntervalHours: number
   ollamaUrl: string
   ollamaModel: string
+  /** Teller dev-env lifetime enrollments used (100 cap) */
   enrollmentsUsed: number | null
+  /** Plaid lifetime Production Items used (10 cap on Trial plan) */
+  plaidItemsUsed: number | null
+}
+
+/** patch shape for updateSettings — includes the write-only Plaid secret */
+export interface SettingsPatch extends Partial<Omit<SettingsDto, 'plaidSecretSet'>> {
+  plaidSecret?: string
 }
