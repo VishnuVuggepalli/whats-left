@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { IsoDate, TxnDraft, TxnStatus } from '../../../shared/types'
 import { minIso } from '../dates'
 import type { ExistingTxn, ReconcileOutcome, TxnRepoPort } from '../ports'
-import { ItemLoginRequiredError } from './client'
+import { ItemLoginRequiredError, PlaidApiError } from './client'
 import type { PlaidRemovedTransaction, PlaidSyncResponse, PlaidTransaction } from './types'
 
 /**
@@ -90,10 +90,24 @@ export interface PlaidSyncEngineDeps {
   repo: PlaidTxnRepoPort
   reconcile: ReconcileFn
   cursors: PlaidCursorStore
+  /** injectable for tests; production default is setTimeout */
+  sleep?: (ms: number) => Promise<void>
 }
 
 /** hard ceiling so a misbehaving cursor can never loop forever — fails loudly */
 const MAX_PAGES = 500
+/**
+ * A brand-new Item returns next_cursor '' until Plaid finishes its initial
+ * pull — retry the same request (quickstart pattern) before giving up for
+ * this sync run.
+ */
+const MAX_EMPTY_CURSOR_RETRIES = 5
+const EMPTY_CURSOR_RETRY_MS = 2000
+/**
+ * TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION = the Item's data changed
+ * mid-pagination; the whole batch must restart from the last PERSISTED cursor.
+ */
+const MAX_MUTATION_RESTARTS = 3
 
 /** deterministic idempotency hash: sha256 hex of 'plaid:' + transaction_id */
 export function plaidImportHash(plaidTxnId: string): string {
@@ -169,7 +183,8 @@ interface FetchedBatch {
   latest: Map<string, PlaidTransaction>
   modifiedIds: Set<string>
   removed: PlaidRemovedTransaction[]
-  nextCursor: string
+  /** null = initial sync not ready yet (empty next_cursor) — never persisted */
+  nextCursor: string | null
 }
 
 export class PlaidSyncEngine {
@@ -205,21 +220,60 @@ export class PlaidSyncEngine {
     // re-fetches the same batch (Plaid's documented pattern).
     const results = input.accounts.map((account) => this.applyAccount(account, batch))
     this.applyRemoved(input.accounts, batch, results)
+    if (batch.nextCursor === null) {
+      // Initial sync not ready after retries — nothing fetched, cursor
+      // untouched; the next scheduled sync starts over. Surfaced, not silent.
+      for (const r of results) {
+        r.warning = 'Plaid is still preparing this connection — transactions arrive on the next sync'
+      }
+      return { accounts: results, error: null }
+    }
     this.deps.cursors.set(input.itemId, batch.nextCursor)
     return { accounts: results, error: null }
   }
 
   private async fetchBatch(input: PlaidSyncItemInput): Promise<FetchedBatch> {
     const { client } = this.deps
-    const responses: PlaidSyncResponse[] = []
-    const modifiedIds = new Set<string>()
-    const removed: PlaidRemovedTransaction[] = []
-    let cursor = this.deps.cursors.get(input.itemId) ?? undefined
+    const sleep = this.deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)))
+    const persistedCursor = this.deps.cursors.get(input.itemId) ?? undefined
+    let responses: PlaidSyncResponse[] = []
+    let modifiedIds = new Set<string>()
+    let removed: PlaidRemovedTransaction[] = []
+    let cursor = persistedCursor
+    let emptyRetries = 0
+    let mutationRestarts = 0
     for (let pages = 0; ; ) {
       if (++pages > MAX_PAGES) {
         throw new Error(`Plaid sync ${input.itemId}: exceeded ${MAX_PAGES} pages — aborting`)
       }
-      const page = await client.transactionsSync(input.accessToken, cursor)
+      let page: PlaidSyncResponse
+      try {
+        page = await client.transactionsSync(input.accessToken, cursor)
+      } catch (err) {
+        if (
+          err instanceof PlaidApiError &&
+          err.errorCode === 'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION' &&
+          ++mutationRestarts <= MAX_MUTATION_RESTARTS
+        ) {
+          // Item data changed mid-pagination: discard the partial batch and
+          // restart from the last PERSISTED cursor (documented handling).
+          responses = []
+          modifiedIds = new Set()
+          removed = []
+          cursor = persistedCursor
+          continue
+        }
+        throw err
+      }
+      if (page.next_cursor === '' && !page.has_more && responses.length === 0) {
+        // Brand-new Item: initial pull not finished. Retry the same request
+        // a few times (quickstart pattern), then report not-ready.
+        if (++emptyRetries <= MAX_EMPTY_CURSOR_RETRIES) {
+          await sleep(EMPTY_CURSOR_RETRY_MS)
+          continue
+        }
+        return { responses: [], latest: new Map(), modifiedIds, removed, nextCursor: null }
+      }
       responses.push(page)
       for (const txn of page.modified) modifiedIds.add(txn.transaction_id)
       removed.push(...page.removed)

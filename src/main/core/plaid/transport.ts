@@ -24,6 +24,9 @@ export class PlaidFetchTransport implements PlaidTransport {
       headers: {
         'content-type': 'application/json',
         accept: 'application/json',
+        // Pin the API version (Plaid's canonical quickstart does the same) so
+        // response shapes can't shift when Plaid rolls the account default.
+        'plaid-version': '2020-09-14',
       },
       body: JSON.stringify(body),
     })
