@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "enrollment.disconnected",
+    "message": "The enrollment is no longer active. Ask the user to reconnect their account via Teller Connect update mode."
+  }
+}

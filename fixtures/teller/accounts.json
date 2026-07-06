@@ -1,0 +1,34 @@
+[
+  {
+    "id": "acc_chase_cc_1",
+    "enrollment_id": "enr_chase_1",
+    "institution": { "id": "chase", "name": "Chase" },
+    "type": "credit",
+    "subtype": "credit_card",
+    "name": "Chase Freedom",
+    "last_four": "4321",
+    "currency": "USD",
+    "status": "open",
+    "links": {
+      "self": "https://api.teller.io/accounts/acc_chase_cc_1",
+      "transactions": "https://api.teller.io/accounts/acc_chase_cc_1/transactions",
+      "balances": "https://api.teller.io/accounts/acc_chase_cc_1/balances"
+    }
+  },
+  {
+    "id": "acc_amex_cc_1",
+    "enrollment_id": "enr_amex_1",
+    "institution": { "id": "amex", "name": "American Express" },
+    "type": "credit",
+    "subtype": "credit_card",
+    "name": "Amex Blue Cash",
+    "last_four": "1005",
+    "currency": "USD",
+    "status": "open",
+    "links": {
+      "self": "https://api.teller.io/accounts/acc_amex_cc_1",
+      "transactions": "https://api.teller.io/accounts/acc_amex_cc_1/transactions",
+      "balances": "https://api.teller.io/accounts/acc_amex_cc_1/balances"
+    }
+  }
+]

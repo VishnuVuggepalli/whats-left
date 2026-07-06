@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+coverage/
+*.local
+.secrets/
+*.db
+*.sqlite
+.DS_Store
+npm-debug.log*

@@ -1,0 +1,98 @@
+[
+  {
+    "id": "txn_pending_new1",
+    "account_id": "acc_chase_cc_1",
+    "date": "2026-07-05",
+    "description": "TST* THAI KITCHEN SEATTLE WA",
+    "amount": "-42.00",
+    "status": "pending",
+    "type": "card_payment",
+    "running_balance": null,
+    "details": {
+      "processing_status": "pending",
+      "category": null,
+      "counterparty": { "name": null, "type": null }
+    },
+    "links": { "self": "https://api.teller.io/accounts/acc_chase_cc_1/transactions/txn_pending_new1" }
+  },
+  {
+    "id": "txn_cc_coffee_a",
+    "account_id": "acc_chase_cc_1",
+    "date": "2026-06-27",
+    "description": "TST* COFFEE HOUSE 0042 SEATTLE WA",
+    "amount": "-6.75",
+    "status": "posted",
+    "type": "card_payment",
+    "running_balance": null,
+    "details": {
+      "processing_status": "complete",
+      "category": "dining",
+      "counterparty": { "name": "Coffee House", "type": "organization" }
+    },
+    "links": { "self": "https://api.teller.io/accounts/acc_chase_cc_1/transactions/txn_cc_coffee_a" }
+  },
+  {
+    "id": "txn_cc_coffee_b",
+    "account_id": "acc_chase_cc_1",
+    "date": "2026-06-27",
+    "description": "TST* COFFEE HOUSE 0042 SEATTLE WA",
+    "amount": "-6.75",
+    "status": "posted",
+    "type": "card_payment",
+    "running_balance": null,
+    "details": {
+      "processing_status": "complete",
+      "category": "dining",
+      "counterparty": { "name": "Coffee House", "type": "organization" }
+    },
+    "links": { "self": "https://api.teller.io/accounts/acc_chase_cc_1/transactions/txn_cc_coffee_b" }
+  },
+  {
+    "id": "txn_cc_wholefoods",
+    "account_id": "acc_chase_cc_1",
+    "date": "2026-06-25",
+    "description": "WHOLEFDS SEA 10221 SEATTLE WA",
+    "amount": "-92.41",
+    "status": "posted",
+    "type": "card_payment",
+    "running_balance": null,
+    "details": {
+      "processing_status": "complete",
+      "category": "groceries",
+      "counterparty": { "name": "Whole Foods Market", "type": "organization" }
+    },
+    "links": { "self": "https://api.teller.io/accounts/acc_chase_cc_1/transactions/txn_cc_wholefoods" }
+  },
+  {
+    "id": "txn_cc_payment",
+    "account_id": "acc_chase_cc_1",
+    "date": "2026-06-30",
+    "description": "Payment Thank You-Mobile",
+    "amount": "843.55",
+    "status": "posted",
+    "type": "payment",
+    "running_balance": null,
+    "details": {
+      "processing_status": "complete",
+      "category": null,
+      "counterparty": { "name": "Chase", "type": "organization" }
+    },
+    "links": { "self": "https://api.teller.io/accounts/acc_chase_cc_1/transactions/txn_cc_payment" }
+  },
+  {
+    "id": "txn_cc_united",
+    "account_id": "acc_chase_cc_1",
+    "date": "2026-06-14",
+    "description": "UNITED 0162345678901 800-864-8331 TX",
+    "amount": "-412.60",
+    "status": "posted",
+    "type": "card_payment",
+    "running_balance": null,
+    "details": {
+      "processing_status": "complete",
+      "category": "transportation",
+      "counterparty": { "name": "United Airlines", "type": "organization" }
+    },
+    "links": { "self": "https://api.teller.io/accounts/acc_chase_cc_1/transactions/txn_cc_united" }
+  }
+]
