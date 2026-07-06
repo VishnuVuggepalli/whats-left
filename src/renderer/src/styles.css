@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/*
+ * Dark-first minimal finance look. Tokens double as Tailwind v4 theme colors
+ * (bg-surface, text-ink, border-line, …) and as plain CSS vars for Recharts
+ * (var(--chart-1), …).
+ */
+@theme {
+  --color-bg: #0d0d0d; /* page plane */
+  --color-surface: #1a1a19; /* cards / panels */
+  --color-raised: #232322; /* inputs, hover */
+  --color-line: #2c2c2a; /* hairlines */
+  --color-ink: #f2f2ee; /* primary text */
+  --color-ink-dim: #c3c2b7; /* secondary text */
+  --color-muted: #898781; /* labels, axes */
+  --color-accent: #3987e5; /* actions */
+  --color-pos: #0ca30c; /* money in */
+  --color-neg: #e66767; /* money out */
+  --color-warn: #fab219; /* warnings */
+}
+
+:root {
+  color-scheme: dark;
+  /* chart series — dark-surface categorical steps */
+  --chart-1: #3987e5;
+  --chart-2: #199e70;
+  --chart-grid: #2c2c2a;
+  --chart-muted: #898781;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
