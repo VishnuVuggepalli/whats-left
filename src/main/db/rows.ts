@@ -20,6 +20,7 @@ export interface AccountRow {
   source_kind: 'teller' | 'csv_only'
   teller_account_id: string | null
   teller_enrollment_id: string | null
+  feed_env: 'sandbox' | 'production' | null
   mask: string | null
   type: AccountType
   subtype: string | null
@@ -71,6 +72,7 @@ export function mapAccount(row: AccountRow): AccountDto {
     sourceKind: row.source_kind,
     tellerAccountId: row.teller_account_id,
     tellerEnrollmentId: row.teller_enrollment_id,
+    feedEnv: row.feed_env,
     mask: row.mask,
     type: row.type,
     subtype: row.subtype,

@@ -122,6 +122,7 @@ export function createMockApi(): Api {
         sourceKind: 'csv_only',
         tellerAccountId: null,
         tellerEnrollmentId: null,
+        feedEnv: null,
         mask: input.mask?.trim() || null,
         type: input.type,
         subtype: null,
@@ -268,8 +269,12 @@ export function createMockApi(): Api {
 
     async syncNow() {
       const ranAt = new Date().toISOString()
+      // env scoping: cross-env items can never sync — excluded from the loop
+      // (no error spam) and badged on the Accounts screen instead
+      const syncable = (a: AccountDto): boolean =>
+        a.sourceKind === 'teller' && (a.feedEnv === null || a.feedEnv === state.settings.plaidEnv)
       const results = state.accounts
-        .filter((a) => a.sourceKind === 'teller')
+        .filter(syncable)
         .map((a) =>
           a.status === 'reconnect_required'
             ? { accountId: a.id, fetched: 0, inserted: 0, matched: 0, gcPending: 0, uncategorized: 0, warning: null, error: 'Enrollment inactive — reconnect required' }
@@ -278,7 +283,7 @@ export function createMockApi(): Api {
       state = {
         ...state,
         accounts: state.accounts.map((a) =>
-          a.sourceKind === 'teller' && a.status === 'ok' ? { ...a, lastSyncAt: ranAt } : a,
+          syncable(a) && a.status === 'ok' ? { ...a, lastSyncAt: ranAt } : a,
         ),
       }
       return { ranAt, accounts: results }
@@ -297,6 +302,7 @@ export function createMockApi(): Api {
         sourceKind: 'teller',
         tellerAccountId: `acc_${id}`,
         tellerEnrollmentId: enrollmentId,
+        feedEnv: state.settings.plaidEnv, // enrolled in the env active right now
         mask: '0000',
         type: institution === 'chase' ? 'depository' : 'credit',
         subtype: null,

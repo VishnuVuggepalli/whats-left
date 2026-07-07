@@ -215,6 +215,7 @@ export function Accounts({ go }: AccountsProps) {
             key={acct.id}
             account={acct}
             tellerAccounts={tellerAccounts}
+            plaidEnv={settings?.plaidEnv ?? null}
             busy={busy}
             run={run}
           />
@@ -241,17 +242,32 @@ export function Accounts({ go }: AccountsProps) {
 interface AccountCardProps {
   account: AccountDto
   tellerAccounts: AccountDto[]
+  /** active Settings.plaidEnv; null while settings are still loading */
+  plaidEnv: 'sandbox' | 'production' | null
   busy: boolean
   run: (action: () => Promise<void>) => Promise<void>
 }
 
-function AccountCard({ account, tellerAccounts, busy, run }: AccountCardProps) {
+function AccountCard({ account, tellerAccounts, plaidEnv, busy, run }: AccountCardProps) {
   const isCsv = account.sourceKind === 'csv_only'
-  const pill = isCsv ? { tone: 'neutral' as PillTone, label: 'CSV import' } : STATUS_PILL[account.status]
+  // enrolled in a different Plaid env than the active one: it can never sync
+  // here — syncNow excludes it and this badge is what makes that visible
+  const crossEnv =
+    !isCsv && plaidEnv !== null && account.feedEnv !== null && account.feedEnv !== plaidEnv
+  const pill = isCsv
+    ? { tone: 'neutral' as PillTone, label: 'CSV import' }
+    : crossEnv
+      ? {
+          tone: 'neutral' as PillTone,
+          label: account.feedEnv === 'sandbox' ? 'Sandbox item' : 'Production item',
+        }
+      : STATUS_PILL[account.status]
   const typeLabel = account.type === 'credit' ? 'Credit card' : 'Checking'
 
   return (
-    <div className="rounded-xl border border-line bg-surface px-5 py-[18px]">
+    <div
+      className={`rounded-xl border border-line bg-surface px-5 py-[18px]${crossEnv ? ' opacity-60' : ''}`}
+    >
       <div className="flex items-start gap-3">
         <div
           className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border border-line bg-[#1E293B] text-[15px] font-bold text-ink-dim"
@@ -296,7 +312,14 @@ function AccountCard({ account, tellerAccounts, busy, run }: AccountCardProps) {
         </div>
       </div>
 
-      {!isCsv && account.status === 'reconnect_required' && (
+      {crossEnv && (
+        <div className="mt-4 border-t border-white/7 pt-4 text-[12.5px] leading-normal text-muted">
+          Enrolled in the Plaid {account.feedEnv} environment. Switch environment in Settings to
+          sync this account.
+        </div>
+      )}
+
+      {!isCsv && !crossEnv && account.status === 'reconnect_required' && (
         <div className="mt-4 border-t border-white/7 pt-4">
           <div className="mb-3 text-[12.5px] leading-normal text-warn-soft">
             {INSTITUTION_LABEL[account.institution]} expired the saved login. Reconnect to resume automatic syncing —
@@ -318,7 +341,7 @@ function AccountCard({ account, tellerAccounts, busy, run }: AccountCardProps) {
         </div>
       )}
 
-      {!isCsv && account.status === 'error' && (
+      {!isCsv && !crossEnv && account.status === 'error' && (
         <div className="mt-4 border-t border-white/7 pt-4">
           <div className="mb-3 text-[12.5px] leading-normal text-neg">
             {INSTITUTION_LABEL[account.institution]} returned an authentication error. Re-enter your credentials to

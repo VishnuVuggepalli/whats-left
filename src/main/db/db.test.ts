@@ -1,8 +1,11 @@
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { openDb, runMigrations, type Db } from './db'
+
+const REAL_MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'migrations')
 
 const cleanups: Array<() => void> = []
 
@@ -80,11 +83,11 @@ describe('runMigrations', () => {
   it('is idempotent — a second run applies nothing and keeps one tracking row per file', () => {
     const db = track(openDb(':memory:'))
     const first = runMigrations(db)
-    expect(first).toEqual(['0000_init.sql'])
+    expect(first).toEqual(['0000_init.sql', '0001_feed_env.sql'])
     const second = runMigrations(db)
     expect(second).toEqual([])
     const count = db.prepare('SELECT COUNT(*) AS n FROM _migrations').get() as { n: number }
-    expect(count.n).toBe(1)
+    expect(count.n).toBe(2)
   })
 
   it('applies migration files in filename order', () => {
@@ -116,6 +119,36 @@ describe('runMigrations', () => {
     expect(tables).toEqual([])
     const count = db.prepare('SELECT COUNT(*) AS n FROM _migrations').get() as { n: number }
     expect(count.n).toBe(0)
+  })
+
+  it('0001_feed_env: a fresh database gets the accounts.feed_env column', () => {
+    const db = track(openDb(':memory:'))
+    runMigrations(db)
+    const cols = (db.pragma('table_info(accounts)') as Array<{ name: string }>).map((c) => c.name)
+    expect(cols).toContain('feed_env')
+  })
+
+  it('0001_feed_env: an existing database created from 0000 only gains the column (NULL for existing rows)', () => {
+    // simulate the live user DB: 0000 applied and tracked, 0001 not yet shipped
+    const db = track(openDb(':memory:'))
+    db.exec(readFileSync(join(REAL_MIGRATIONS_DIR, '0000_init.sql'), 'utf8'))
+    db.exec(`CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`)
+    db.prepare(`INSERT INTO _migrations (name, applied_at) VALUES (?, ?)`).run(
+      '0000_init.sql',
+      '2026-06-01T00:00:00.000Z',
+    )
+    db.prepare(
+      `INSERT INTO accounts (id, name, institution, source_kind, type)
+       VALUES ('a1', 'Plaid Checking', 'other', 'teller', 'depository')`,
+    ).run()
+
+    expect(runMigrations(db)).toEqual(['0001_feed_env.sql'])
+    const row = db.prepare('SELECT feed_env FROM accounts WHERE id = ?').get('a1') as {
+      feed_env: string | null
+    }
+    expect(row.feed_env).toBeNull()
+    // and a re-run stays a no-op (IF NOT EXISTS in 0000 would otherwise hide breakage)
+    expect(runMigrations(db)).toEqual([])
   })
 
   it('picks up new migration files added after an earlier run', () => {

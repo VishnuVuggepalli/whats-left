@@ -1,8 +1,8 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 /**
- * Drizzle schema — mirrors src/main/db/migrations/0000_init.sql (hand-written
- * migration is the source of truth; keep both in sync).
+ * Drizzle schema — mirrors the combined src/main/db/migrations/*.sql files
+ * (the hand-written migrations are the source of truth; keep both in sync).
  * Amounts: signed integer cents (negative = out). Dates: 'YYYY-MM-DD' TEXT.
  * Analytics views (raw SQL only): NULL-category posted rows count as spend
  * everywhere (COALESCE in v_monthly_totals / v_merchant_monthly).
@@ -15,6 +15,13 @@ export const accounts = sqliteTable('accounts', {
   sourceKind: text('source_kind', { enum: ['teller', 'csv_only'] }).notNull(),
   tellerAccountId: text('teller_account_id'),
   tellerEnrollmentId: text('teller_enrollment_id'),
+  /**
+   * Plaid environment the Item was enrolled in (0001_feed_env.sql — lives in
+   * its own migration because SQLite lacks ADD COLUMN IF NOT EXISTS). NULL
+   * for csv_only accounts and legacy rows (backfilled on sync). syncNow only
+   * touches accounts whose feed_env matches the active Settings.plaidEnv.
+   */
+  feedEnv: text('feed_env', { enum: ['sandbox', 'production'] }),
   mask: text('mask'),
   type: text('type', { enum: ['depository', 'credit'] }).notNull(),
   subtype: text('subtype'),

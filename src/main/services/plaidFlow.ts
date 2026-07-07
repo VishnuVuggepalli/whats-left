@@ -133,7 +133,7 @@ export async function runPlaidEnrollment(
 
   const institution = mapPlaidInstitution(payload.institutionName, payload.institutionId)
   const remote = await client.getAccounts(accessToken)
-  const accountsAdded = upsertPlaidAccounts(deps.repo, remote, institution)
+  const accountsAdded = upsertPlaidAccounts(deps.repo, remote, institution, settings.plaidEnv)
   return {
     ok: true,
     enrollmentId: itemId,
@@ -163,11 +163,16 @@ async function runLinkServer(
  * account id" / "bank-feed connection id"; source_kind 'teller' likewise
  * means "live bank feed" (vs csv_only). Other account types (loan,
  * investment) are skipped — v1 tracks spending accounts only.
+ *
+ * feed_env is stamped with the plaidEnv active at enrollment time: an Item
+ * only ever works in the env it was created in, so syncNow scopes the sync
+ * loop to accounts whose feed_env matches the current Settings.plaidEnv.
  */
 function upsertPlaidAccounts(
   repo: SqliteRepo,
   remote: PlaidAccountsGetResponse,
   institution: Institution,
+  feedEnv: PlaidEnv,
 ): number {
   const known = new Set(
     repo
@@ -188,6 +193,7 @@ function upsertPlaidAccounts(
       subtype: account.subtype,
       tellerAccountId: account.account_id, // holds the PLAID account_id
       tellerEnrollmentId: remote.item.item_id, // holds the PLAID item_id
+      feedEnv, // the env this Item lives in — it can never sync anywhere else
     })
     added += 1
   }

@@ -1,0 +1,11 @@
+-- 0001_feed_env.sql — environment scoping for bank-feed accounts.
+-- feed_env records which Plaid environment ('sandbox' | 'production') an
+-- account's Item was enrolled in; NULL for csv_only accounts and for rows
+-- created before this migration (backfilled lazily on sync from the per-env
+-- access-token keys). An Item can only ever sync in the env it was created
+-- in — syncNow skips accounts whose feed_env differs from Settings.plaidEnv.
+--
+-- Deliberately NOT added to 0000_init.sql: SQLite has no
+-- ADD COLUMN IF NOT EXISTS, so keeping the column out of 0000 lets this
+-- ALTER apply cleanly on both fresh installs and existing databases.
+ALTER TABLE accounts ADD COLUMN feed_env TEXT;

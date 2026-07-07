@@ -1102,6 +1102,27 @@ describe('syncNow — plaid provider dispatch', () => {
     expect((await w.service.listTransactions({})).total).toBe(before)
   })
 
+  it('cross-env accounts are excluded from the sync loop with no error entries (env scoping)', async () => {
+    const w = await plaidWorld()
+    const prodAcct = w.repo.createAccount({
+      name: 'Real Chase',
+      institution: 'chase',
+      sourceKind: 'teller',
+      type: 'depository',
+      tellerAccountId: 'plaid-acc-prod-01',
+      tellerEnrollmentId: 'plaid-item-prod-01',
+      feedEnv: 'production',
+    })
+    const report = await w.service.syncNow() // settings default to plaidEnv 'sandbox'
+    expect(report.accounts.map((a) => a.accountId)).not.toContain(prodAcct.id)
+    expect(report.accounts.every((a) => a.error === null)).toBe(true)
+    // the excluded account is not flagged — it is healthy, just enrolled elsewhere
+    expect(w.repo.getAccount(prodAcct.id)?.status).toBe('ok')
+    // legacy NULL-feed_env accounts had their env backfilled from the stored token key
+    expect(w.repo.getAccount(w.chase.id)?.feedEnv).toBe('sandbox')
+    expect(w.repo.getAccount(w.amex.id)?.feedEnv).toBe('sandbox')
+  })
+
   it('ITEM_LOGIN_REQUIRED flags every account of the item reconnect_required', async () => {
     const w = await plaidWorld({
       makePlaidClient: () => ({

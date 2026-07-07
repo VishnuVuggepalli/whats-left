@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import type { AccountDto, AccountStatus, AccountType, Institution } from '../../shared/types'
+import type {
+  AccountDto,
+  AccountStatus,
+  AccountType,
+  Institution,
+  PlaidEnv,
+} from '../../shared/types'
 import type { Db } from './db'
 import { mapAccount, type AccountRow } from './rows'
 
@@ -12,11 +18,14 @@ export interface CreateAccountInput {
   subtype?: string | null
   tellerAccountId?: string | null
   tellerEnrollmentId?: string | null
+  /** bank-feed environment the account was enrolled in; null for csv_only */
+  feedEnv?: PlaidEnv | null
 }
 
 const INSTITUTIONS: readonly Institution[] = ['chase', 'amex', 'other']
 const ACCOUNT_TYPES: readonly AccountType[] = ['depository', 'credit']
 const ACCOUNT_STATUSES: readonly AccountStatus[] = ['ok', 'reconnect_required', 'error']
+const FEED_ENVS: readonly PlaidEnv[] = ['sandbox', 'production']
 
 function accountRow(db: Db, id: string): AccountRow | null {
   const row = db.prepare('SELECT * FROM accounts WHERE id = ?').get(id) as AccountRow | undefined
@@ -31,11 +40,14 @@ export function createAccount(db: Db, input: CreateAccountInput): AccountDto {
   if (!ACCOUNT_TYPES.includes(input.type)) {
     throw new Error(`createAccount: invalid account type ${JSON.stringify(input.type)}`)
   }
+  if (input.feedEnv != null && !FEED_ENVS.includes(input.feedEnv)) {
+    throw new Error(`createAccount: invalid feedEnv ${JSON.stringify(input.feedEnv)}`)
+  }
   const id = randomUUID()
   db.prepare(
     `INSERT INTO accounts
-       (id, name, institution, source_kind, type, mask, subtype, teller_account_id, teller_enrollment_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, institution, source_kind, type, mask, subtype, teller_account_id, teller_enrollment_id, feed_env)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.name,
@@ -46,6 +58,7 @@ export function createAccount(db: Db, input: CreateAccountInput): AccountDto {
     input.subtype ?? null,
     input.tellerAccountId ?? null,
     input.tellerEnrollmentId ?? null,
+    input.feedEnv ?? null,
   )
   const created = getAccount(db, id)
   if (!created) throw new Error(`createAccount: row vanished after insert (${id})`)
@@ -72,6 +85,21 @@ export function updateAccountStatus(db: Db, id: string, status: AccountStatus): 
     .prepare('UPDATE accounts SET status = ? WHERE id = ? AND tombstone = 0')
     .run(status, id)
   if (info.changes === 0) throw new Error(`updateAccountStatus: unknown account ${id}`)
+}
+
+/**
+ * Persist a resolved bank-feed environment (lazy backfill for accounts
+ * enrolled before feed_env existed — plaidSync resolves the env from the
+ * per-env access-token keys and records the answer here).
+ */
+export function setAccountFeedEnv(db: Db, id: string, feedEnv: PlaidEnv): void {
+  if (!FEED_ENVS.includes(feedEnv)) {
+    throw new Error(`setAccountFeedEnv: invalid feedEnv ${JSON.stringify(feedEnv)}`)
+  }
+  const info = db
+    .prepare('UPDATE accounts SET feed_env = ? WHERE id = ? AND tombstone = 0')
+    .run(feedEnv, id)
+  if (info.changes === 0) throw new Error(`setAccountFeedEnv: unknown account ${id}`)
 }
 
 /** successful sync: back to 'ok' and stamp last_sync_at (Accounts screen renders it) */

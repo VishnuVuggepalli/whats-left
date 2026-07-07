@@ -6,6 +6,7 @@ import type {
   CategorySource,
   DashboardData,
   IsoDate,
+  PlaidEnv,
   RecategorizeInput,
   ReviewItem,
   Source,
@@ -81,6 +82,11 @@ export class SqliteRepo implements TxnRepoPort, MerchantCachePort {
 
   updateAccountStatus(id: string, status: AccountStatus): void {
     accountOps.updateAccountStatus(this.db, id, status)
+  }
+
+  /** lazy backfill: record which env a legacy feed account was enrolled in */
+  setAccountFeedEnv(id: string, feedEnv: PlaidEnv): void {
+    accountOps.setAccountFeedEnv(this.db, id, feedEnv)
   }
 
   /** successful sync: status back to 'ok' AND last_sync_at stamped */

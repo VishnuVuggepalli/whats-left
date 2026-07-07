@@ -25,6 +25,14 @@ export interface AccountDto {
   sourceKind: 'teller' | 'csv_only'
   tellerAccountId: string | null
   tellerEnrollmentId: string | null
+  /**
+   * Bank-feed environment the account was enrolled in ('sandbox' |
+   * 'production' for Plaid); null for csv_only accounts and legacy feed rows
+   * awaiting backfill. Accounts whose feedEnv differs from the active
+   * Settings.plaidEnv can never sync (INVALID_API_KEYS) — syncNow skips them
+   * and the Accounts screen badges them instead.
+   */
+  feedEnv: 'sandbox' | 'production' | null
   mask: string | null
   type: AccountType
   subtype: string | null

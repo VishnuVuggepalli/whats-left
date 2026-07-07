@@ -1,4 +1,4 @@
-import type { AccountDto, SettingsDto, SyncReport, TxnDraft } from '../../shared/types'
+import type { AccountDto, PlaidEnv, SettingsDto, SyncReport, TxnDraft } from '../../shared/types'
 import { normalizePayee } from '../core/categorize/normalizer'
 import {
   draftsForAccount,
@@ -22,6 +22,14 @@ import {
  * one Item can hold several accounts), runs the PlaidSyncEngine per Item, and
  * reports per-account entries in the same SyncReport shape as the Teller
  * path. Cursors live in the settings table (plaidCursorKey).
+ *
+ * ENV SCOPING: an Item only ever works in the Plaid environment it was
+ * enrolled in — syncing a sandbox Item against production keys is a
+ * guaranteed INVALID_API_KEYS error. Only accounts whose feed_env matches
+ * the active Settings.plaidEnv enter the sync loop; cross-env accounts are
+ * excluded WITHOUT error entries (they are healthy, just enrolled elsewhere)
+ * and the Accounts screen badges them instead — never a silent skip. Legacy
+ * NULL-feed_env accounts are backfilled from the per-env access-token keys.
  */
 
 export interface PlaidSyncDeps {
@@ -48,17 +56,76 @@ export async function syncPlaidProvider(
         a.tellerEnrollmentId !== null &&
         !a.closed,
     )
+  const entries: SyncEntry[] = []
   const byItem = new Map<string, AccountDto[]>()
   for (const account of feedAccounts) {
     const itemId = account.tellerEnrollmentId as string // holds the PLAID item_id
+    const feedEnv =
+      account.feedEnv ?? (await backfillFeedEnv(deps, account.id, itemId, settings.plaidEnv))
+    if (feedEnv === null) {
+      // enrolled env unknown AND no token in any env — surface it, never guess
+      const entry = noTokenEntry(account.id, itemId)
+      flagAccountError(deps.repo, account.id)
+      deps.repo.insertSyncLog({
+        ranAt,
+        source: 'plaid',
+        accountId: entry.accountId,
+        fetched: 0,
+        inserted: 0,
+        matched: 0,
+        gcPending: 0,
+        errors: entry.error,
+      })
+      entries.push(entry)
+      continue
+    }
+    // cross-env Items can never sync here (INVALID_API_KEYS): excluded from
+    // the loop, badged on the Accounts screen via AccountDto.feedEnv
+    if (feedEnv !== settings.plaidEnv) continue
     byItem.set(itemId, [...(byItem.get(itemId) ?? []), account])
   }
 
-  const entries: SyncEntry[] = []
   for (const [itemId, accounts] of byItem) {
     entries.push(...(await syncItem(deps, settings, ranAt, itemId, accounts)))
   }
   return entries
+}
+
+/**
+ * Resolve a legacy NULL-feed_env account by which env holds its Item's
+ * access token and persist the answer. The current env is checked first so
+ * an Item that (improbably) has tokens in both keeps syncing where it is.
+ * Returns null when no env holds a token — the caller surfaces that loudly.
+ */
+async function backfillFeedEnv(
+  deps: PlaidSyncDeps,
+  accountId: string,
+  itemId: string,
+  currentEnv: PlaidEnv,
+): Promise<PlaidEnv | null> {
+  const other: PlaidEnv = currentEnv === 'sandbox' ? 'production' : 'sandbox'
+  for (const env of [currentEnv, other]) {
+    if ((await deps.secrets.get(plaidAccessTokenKey(env, itemId))) !== null) {
+      deps.repo.setAccountFeedEnv(accountId, env)
+      return env
+    }
+  }
+  return null
+}
+
+function noTokenEntry(accountId: string, itemId: string): SyncEntry {
+  return {
+    accountId,
+    fetched: 0,
+    inserted: 0,
+    matched: 0,
+    gcPending: 0,
+    uncategorized: 0,
+    warning: null,
+    error:
+      `no Plaid access token stored for item ${itemId} in any environment — ` +
+      'reconnect this account',
+  }
 }
 
 async function syncItem(

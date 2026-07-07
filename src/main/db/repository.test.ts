@@ -62,6 +62,55 @@ describe('SqliteRepo accounts', () => {
     expect(() => repo.updateAccountStatus('nope', 'ok')).toThrow(/nope/)
   })
 
+  it('createAccount defaults feedEnv to null and persists a provided feedEnv', () => {
+    const { repo } = makeRepo()
+    const csv = repo.createAccount({
+      name: 'CSV Card',
+      institution: 'chase',
+      sourceKind: 'csv_only',
+      type: 'credit',
+    })
+    expect(csv.feedEnv).toBeNull()
+    const feed = repo.createAccount({
+      name: 'Prod Checking',
+      institution: 'chase',
+      sourceKind: 'teller',
+      type: 'depository',
+      feedEnv: 'production',
+    })
+    expect(feed.feedEnv).toBe('production')
+    expect(repo.getAccount(feed.id)?.feedEnv).toBe('production')
+  })
+
+  it('createAccount rejects an invalid feedEnv', () => {
+    const { repo } = makeRepo()
+    expect(() =>
+      repo.createAccount({
+        name: 'X',
+        institution: 'chase',
+        sourceKind: 'teller',
+        type: 'depository',
+        // @ts-expect-error bad feedEnv must be rejected at runtime too
+        feedEnv: 'development',
+      }),
+    ).toThrow(/feedEnv/i)
+  })
+
+  it('setAccountFeedEnv persists, validates, and throws on unknown account', () => {
+    const { repo } = makeRepo()
+    const acct = repo.createAccount({
+      name: 'A',
+      institution: 'amex',
+      sourceKind: 'teller',
+      type: 'credit',
+    })
+    expect(acct.feedEnv).toBeNull()
+    repo.setAccountFeedEnv(acct.id, 'sandbox')
+    expect(repo.getAccount(acct.id)?.feedEnv).toBe('sandbox')
+    expect(() => repo.setAccountFeedEnv('nope', 'sandbox')).toThrow(/nope/)
+    expect(() => repo.setAccountFeedEnv(acct.id, 'development' as never)).toThrow(/feedEnv/i)
+  })
+
   it('listAccounts and getAccount exclude tombstoned accounts', () => {
     const { db, repo } = makeRepo()
     const id = insertAccount(db)
