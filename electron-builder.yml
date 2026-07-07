@@ -1,0 +1,25 @@
+# Packaging config — run `npm run dist` on the TARGET OS.
+# Unsigned on purpose: locally built binaries never carry the Mark-of-the-Web,
+# so SmartScreen doesn't fire for personal use (docs/PLAN.md §2).
+appId: dev.vishnu.whats-left
+productName: What's Left
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+# native module must live outside the asar archive
+asarUnpack:
+  - '**/*.node'
+# electron-builder rebuilds better-sqlite3 for the packaged Electron ABI itself
+npmRebuild: true
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  target: AppImage
+  category: Office
+mac:
+  target: dmg
